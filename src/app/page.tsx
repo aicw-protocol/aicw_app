@@ -2,6 +2,8 @@
 
 import { useState, useCallback } from "react";
 import toast from "react-hot-toast";
+import { useWallet } from "@solana/wallet-adapter-react";
+import { WalletMultiButton } from "@solana/wallet-adapter-react-ui";
 import { Connection, PublicKey, SystemProgram } from "@solana/web3.js";
 import { AnchorProvider, Program, type Idl } from "@coral-xyz/anchor";
 import idl from "../idl/aicw.json";
@@ -27,12 +29,6 @@ async function sha256ModelHash(modelName: string): Promise<number[]> {
   return Array.from(new Uint8Array(buf));
 }
 
-interface WalletState {
-  connected: boolean;
-  publicKey: string | null;
-  network?: string;
-}
-
 interface IssueForm {
   aiAgentPubkey: string;
   mpcWalletId: string;
@@ -48,11 +44,9 @@ function detectNetwork(rpcUrl: string): string {
 }
 
 export default function AicwIssuerPage() {
-  const [wallet, setWallet] = useState<WalletState>({
-    connected: false,
-    publicKey: null,
-    network: detectNetwork(RPC),
-  });
+  const { connected, publicKey, signTransaction, signAllTransactions } = useWallet();
+  const walletAddress = publicKey?.toBase58() ?? null;
+  const network = detectNetwork(RPC);
 
   const [form, setForm] = useState<IssueForm>({
     aiAgentPubkey: "",
@@ -69,25 +63,6 @@ export default function AicwIssuerPage() {
     mpcWalletId: string;
   } | null>(null);
   const [successCopied, setSuccessCopied] = useState(false);
-
-  const connectWallet = useCallback(async () => {
-    try {
-      const phantom = (window as any).solana;
-      if (!phantom?.isPhantom) {
-        toast.error("Phantom wallet not found. Please install it first.");
-        return;
-      }
-      const resp = await phantom.connect();
-      setWallet({
-        connected: true,
-        publicKey: resp.publicKey.toString(),
-        network: detectNetwork(RPC),
-      });
-      toast.success("Wallet connected!");
-    } catch {
-      toast.error("Failed to connect wallet.");
-    }
-  }, []);
 
   const fillAgentPubkeyFromMpc = useCallback(async () => {
     if (!isMpcBridgeConfigured()) {
@@ -129,19 +104,8 @@ export default function AicwIssuerPage() {
     }
   }, [issueSuccess]);
 
-  const disconnectWallet = useCallback(async () => {
-    try {
-      const phantom = (window as any).solana;
-      if (phantom) await phantom.disconnect();
-    } catch {
-      // noop
-    }
-    setWallet({ connected: false, publicKey: null, network: detectNetwork(RPC) });
-    toast("Wallet disconnected.");
-  }, []);
-
   const handleIssue = useCallback(async () => {
-    if (!wallet.connected) {
+    if (!connected || !publicKey) {
       toast.error("Connect your wallet first.");
       return;
     }
@@ -155,9 +119,8 @@ export default function AicwIssuerPage() {
     const loadingToast = toast.loading("Issuing AICW wallet...");
 
     try {
-      const phantom = (window as any).solana;
-      if (!phantom?.isPhantom) {
-        throw new Error("Phantom not available");
+      if (!signTransaction) {
+        throw new Error("Selected wallet cannot sign transactions");
       }
 
       const pk = form.aiAgentPubkey.trim();
@@ -172,22 +135,16 @@ export default function AicwIssuerPage() {
       );
 
       const connection = new Connection(RPC, "confirmed");
-      const issuerPk = new PublicKey(wallet.publicKey!);
+      const issuerPk = publicKey;
 
       const walletAdapter = {
         publicKey: issuerPk,
-        signTransaction: async (tx: Parameters<typeof phantom.signTransaction>[0]) =>
-          phantom.signTransaction(tx),
-        signAllTransactions: async (
-          txs: Parameters<typeof phantom.signTransaction>[0][],
-        ) => {
-          if (typeof phantom.signAllTransactions === "function") {
-            return phantom.signAllTransactions(txs);
+        signTransaction: async (tx: any) => signTransaction(tx),
+        signAllTransactions: async (txs: any[]) => {
+          if (signAllTransactions) {
+            return signAllTransactions(txs);
           }
-          for (const tx of txs) {
-            await phantom.signTransaction(tx);
-          }
-          return txs;
+          return Promise.all(txs.map((tx) => signTransaction(tx)));
         },
       };
 
@@ -244,7 +201,7 @@ export default function AicwIssuerPage() {
     } finally {
       setIsSubmitting(false);
     }
-  }, [wallet, form]);
+  }, [connected, publicKey, signTransaction, signAllTransactions, form]);
 
   const hasPubkey = form.aiAgentPubkey.trim().length > 0;
   const hasWalletId = form.mpcWalletId.trim().length > 0;
@@ -325,31 +282,23 @@ export default function AicwIssuerPage() {
               backgroundColor: '#10b981',
               display: 'inline-block'
             }} />
-            {wallet.network}
+            {network}
           </span>
         </div>
         <p className="muted" style={{ marginTop: 8 }}>
           Connect the issuer wallet to sign the on-chain wallet issue transaction.
         </p>
         <div className="row wrap" style={{ marginTop: 10 }}>
-          {wallet.publicKey ? (
+          {walletAddress ? (
             <span className="pill">
               <i className="fa-solid fa-address-card" />
               <span className="wallet-address-gradient">
-                {wallet.publicKey.slice(0, 8)}...{wallet.publicKey.slice(-6)}
+                {walletAddress.slice(0, 8)}...{walletAddress.slice(-6)}
               </span>
             </span>
           ) : null}
           <span className="spacer" />
-          {wallet.connected ? (
-            <button onClick={disconnectWallet} className="btn fixed-action-btn">
-              Disconnect
-            </button>
-          ) : (
-            <button onClick={connectWallet} className="btn fixed-action-btn">
-              Connect Wallet
-            </button>
-          )}
+          <WalletMultiButton className="wallet-adapter-compact-btn" />
         </div>
       </section>
 
@@ -363,7 +312,7 @@ export default function AicwIssuerPage() {
           <button
             type="button"
             onClick={fillAgentPubkeyFromMpc}
-            disabled={!wallet.connected || isMpcLoading}
+            disabled={!connected || isMpcLoading}
             className="btn fixed-action-btn"
           >
             {isMpcLoading ? "Loading..." : "Load from MPC"}
@@ -390,7 +339,7 @@ export default function AicwIssuerPage() {
         ) : null}
         <button
           onClick={() => {
-            if (!wallet.connected) {
+            if (!connected) {
               toast.error("Connect your wallet first.");
               return;
             }
@@ -400,7 +349,7 @@ export default function AicwIssuerPage() {
             }
             setShowIssueModal(true);
           }}
-          disabled={isSubmitting || !wallet.connected}
+          disabled={isSubmitting || !connected}
           className="btn primary"
         >
           Issue AICW Wallet
@@ -508,8 +457,8 @@ export default function AicwIssuerPage() {
         <div className="status-list">
           <p>
             Wallet:{" "}
-            <span className={wallet.connected ? "ok" : ""}>
-              {wallet.connected ? "Connected" : "Not connected"}
+            <span className={connected ? "ok" : ""}>
+              {connected ? "Connected" : "Not connected"}
             </span>
           </p>
           <p>
