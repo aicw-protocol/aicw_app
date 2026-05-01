@@ -306,20 +306,16 @@ export default function AicwIssuerPage() {
       </section>
 
       <section className="section">
-        <div className="row">
+        <div className="row" style={{ alignItems: 'center', gap: 12 }}>
           <h2 style={{ margin: 0 }}>1) Connect Wallet</h2>
-        </div>
-        <div style={{ marginTop: 8, display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
-          <p className="muted" style={{ margin: 0 }}>
-            Connect the issuer wallet to sign the on-chain wallet issue transaction.
-          </p>
           <span style={{ 
             fontSize: '13px', 
             color: '#10b981', 
             display: 'flex', 
             alignItems: 'center', 
             gap: 6,
-            whiteSpace: 'nowrap'
+            whiteSpace: 'nowrap',
+            marginLeft: 'auto'
           }}>
             <span style={{ 
               width: 6, 
@@ -331,6 +327,9 @@ export default function AicwIssuerPage() {
             {wallet.network}
           </span>
         </div>
+        <p className="muted" style={{ marginTop: 8 }}>
+          Connect the issuer wallet to sign the on-chain wallet issue transaction.
+        </p>
         <div className="row wrap" style={{ marginTop: 10 }}>
           {wallet.publicKey ? (
             <span className="pill">
