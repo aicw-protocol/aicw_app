@@ -81,6 +81,7 @@ export default function AicwIssuerPage() {
       setWallet({
         connected: true,
         publicKey: resp.publicKey.toString(),
+        network: detectNetwork(RPC),
       });
       toast.success("Wallet connected!");
     } catch {
@@ -135,7 +136,7 @@ export default function AicwIssuerPage() {
     } catch {
       // noop
     }
-    setWallet({ connected: false, publicKey: null });
+    setWallet({ connected: false, publicKey: null, network: detectNetwork(RPC) });
     toast("Wallet disconnected.");
   }, []);
 
