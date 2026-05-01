@@ -30,6 +30,7 @@ async function sha256ModelHash(modelName: string): Promise<number[]> {
 interface WalletState {
   connected: boolean;
   publicKey: string | null;
+  network?: string;
 }
 
 interface IssueForm {
@@ -37,10 +38,20 @@ interface IssueForm {
   mpcWalletId: string;
 }
 
+function detectNetwork(rpcUrl: string): string {
+  const url = rpcUrl.toLowerCase();
+  if (url.includes('devnet')) return 'Devnet';
+  if (url.includes('testnet')) return 'Testnet';
+  if (url.includes('mainnet')) return 'Mainnet';
+  if (url.includes('localhost') || url.includes('127.0.0.1')) return 'Localnet';
+  return 'Custom';
+}
+
 export default function AicwIssuerPage() {
   const [wallet, setWallet] = useState<WalletState>({
     connected: false,
     publicKey: null,
+    network: detectNetwork(RPC),
   });
 
   const [form, setForm] = useState<IssueForm>({
@@ -298,9 +309,28 @@ export default function AicwIssuerPage() {
         <div className="row">
           <h2 style={{ margin: 0 }}>1) Connect Wallet</h2>
         </div>
-        <p className="muted" style={{ marginTop: 8 }}>
-          Connect the issuer wallet to sign the on-chain wallet issue transaction.
-        </p>
+        <div style={{ marginTop: 8, display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
+          <p className="muted" style={{ margin: 0 }}>
+            Connect the issuer wallet to sign the on-chain wallet issue transaction.
+          </p>
+          <span style={{ 
+            fontSize: '13px', 
+            color: '#10b981', 
+            display: 'flex', 
+            alignItems: 'center', 
+            gap: 6,
+            whiteSpace: 'nowrap'
+          }}>
+            <span style={{ 
+              width: 6, 
+              height: 6, 
+              borderRadius: '50%', 
+              backgroundColor: '#10b981',
+              display: 'inline-block'
+            }} />
+            {wallet.network}
+          </span>
+        </div>
         <div className="row wrap" style={{ marginTop: 10 }}>
           {wallet.publicKey ? (
             <span className="pill">
