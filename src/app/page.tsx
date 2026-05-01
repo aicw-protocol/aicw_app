@@ -298,7 +298,9 @@ export default function AicwIssuerPage() {
             </span>
           ) : null}
           <span className="spacer" />
-          <WalletMultiButton className="wallet-adapter-compact-btn" />
+          <div className="wallet-connect-slot">
+            <WalletMultiButton className="wallet-adapter-compact-btn" />
+          </div>
         </div>
       </section>
 

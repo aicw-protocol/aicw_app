@@ -377,10 +377,10 @@ a {
   min-width: 128px !important;
 }
 
-/* Match legacy "fixed-action-btn" look more closely than wallet-adapter defaults */
-.wallet-adapter-dropdown:has(> .wallet-adapter-compact-btn) {
+.wallet-connect-slot {
   width: 128px;
   min-width: 128px;
+  display: inline-block;
 }
 
 button.wallet-adapter-button.wallet-adapter-button-trigger.wallet-adapter-compact-btn {
