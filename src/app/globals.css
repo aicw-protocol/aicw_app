@@ -1,12 +1,3 @@
-@font-face {
-  font-family: "Mona Sans VF";
-  src: url("https://cdn.jsdelivr.net/npm/mona-sans@1.0.0/fonts/variable/Mona-Sans-VF.woff2")
-    format("woff2");
-  font-weight: 200 900;
-  font-stretch: 75% 125%;
-  font-display: swap;
-}
-
 :root {
   color-scheme: dark;
   --bg: #0b0e14;
@@ -28,7 +19,7 @@ html,
 body {
   margin: 0;
   padding: 0;
-  font-family: "Mona Sans VF", Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+  font-family: "Mona Sans Variable", Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
     sans-serif;
   background: radial-gradient(circle at 20% 0%, #151b29 0%, var(--bg) 45%);
   color: var(--text);
@@ -665,23 +656,28 @@ a {
 
 @media (max-width: 640px) {
   .app-shell {
-    padding: 144px 12px 26px;
+    padding: 96px 12px 26px;
   }
 
   .top-nav-inner {
+    flex-wrap: nowrap;
     padding: 15px 12px;
   }
 
   .brand {
-    width: 100%;
+    flex: 1;
+    min-width: 0;
+    width: auto;
   }
 
   .nav-icons {
-    width: 100%;
+    flex: 0 0 auto;
+    width: auto;
     display: flex;
     justify-content: flex-end;
     align-items: center;
     gap: 8px;
+    margin-left: auto;
   }
 
   .nav-menu {
