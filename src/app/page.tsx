@@ -248,7 +248,6 @@ export default function AicwIssuerPage() {
 
   const hasPubkey = form.aiAgentPubkey.trim().length > 0;
   const hasWalletId = form.mpcWalletId.trim().length > 0;
-  const discordUrl = process.env.NEXT_PUBLIC_AICW_DISCORD_URL?.trim() || "#";
   const githubUrl = "https://github.com/aicw-protocol/aicw";
   const twitterUrl = "https://x.com/AICW_Protocol";
 
@@ -282,16 +281,6 @@ export default function AicwIssuerPage() {
               title="Twitter"
             >
               <i className="fa-brands fa-twitter" />
-            </a>
-            <a
-              className="icon-link"
-              href={discordUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              aria-label="Discord"
-              title="Discord"
-            >
-              <i className="fa-brands fa-discord" />
             </a>
           </div>
         </div>
