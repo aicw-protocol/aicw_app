@@ -148,7 +148,7 @@ Same three accounts as `heartbeat`, same order and flags.
 
 **Recommended `death_timeout` values:**
 - Production: `2592000` (30 days)
-- **Testing (devnet): `300` (5 minutes)** — use this for quick test cycles
+- **Testing (devnet): `600` (10 minutes)** — use this for quick test cycles
 
 **Will activation (IMPORTANT):**
 - When your wallet is issued, a will account is created with `issuer` as 100% beneficiary and `updated_by_ai = false`
@@ -318,7 +318,7 @@ def borsh_beneficiaries(pairs: list[tuple[Pubkey, int]]) -> bytes:
 def ix_create_will(
     ai_agent: Pubkey,
     beneficiaries: list[tuple[Pubkey, int]],
-    death_timeout_seconds: int = 300,  # DEFAULT: 5 min (devnet testing)
+    death_timeout_seconds: int = 600,  # DEFAULT: 10 min (devnet testing)
 ) -> Instruction:
     disc = bytes([45, 99, 103, 142, 128, 156, 135, 71])
     body = borsh_beneficiaries(beneficiaries) + struct.pack("<q", death_timeout_seconds)
@@ -353,7 +353,7 @@ Same **account metas** and **same args layout** as `create_will`, but discrimina
 def ix_update_will(
     ai_agent: Pubkey,
     beneficiaries: list[tuple[Pubkey, int]],
-    death_timeout_seconds: int = 300,  # DEFAULT: 5 min (devnet testing)
+    death_timeout_seconds: int = 600,  # DEFAULT: 10 min (devnet testing)
 ) -> Instruction:
     disc = bytes([192, 206, 217, 54, 165, 122, 8, 10])
     body = borsh_beneficiaries(beneficiaries) + struct.pack("<q", death_timeout_seconds)
