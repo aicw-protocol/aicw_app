@@ -5,6 +5,8 @@
   "scripts": {
     "dev": "next dev -p 4002",
     "build": "next build",
+    "build:root-static": "node scripts/next-build-root.mjs",
+    "export:nested-preview": "node scripts/nested-static-preview.mjs",
     "start": "next start -p 4002",
     "lint": "next lint"
   },

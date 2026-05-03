@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import toast from "react-hot-toast";
-import { Connection, PublicKey, SystemProgram } from "@solana/web3.js";
+import Link from "next/link";
+import { Connection, PublicKey, SystemProgram, SendTransactionError } from "@solana/web3.js";
 import { AnchorProvider, Program, type Idl } from "@coral-xyz/anchor";
 import idl from "../idl/aicw.json";
 import {
@@ -10,9 +11,14 @@ import {
   getMpcBridgeBaseUrl,
   isMpcBridgeConfigured,
 } from "../lib/mpcAgentPubkey";
+import { AppNav } from "../components/AppNav";
 
 const ISSUER_HANDOFF_DOCS_URL =
   process.env.NEXT_PUBLIC_ISSUER_HANDOFF_DOCS_URL?.trim() ?? "";
+
+/** Full URL to `aicw_skill.md` for the issuance copy bundle (agent handoff). */
+const AICW_SKILL_MD_URL =
+  process.env.NEXT_PUBLIC_AICW_SKILL_MD_URL?.trim() ?? "http://localhost:4002/aicw_skill.md";
 
 const RPC =
   process.env.NEXT_PUBLIC_SOLANA_RPC ?? "https://api.devnet.solana.com";
@@ -47,6 +53,64 @@ function detectNetwork(rpcUrl: string): string {
   return "Custom";
 }
 
+/** Rich console output for Anchor / web3 send failures (often wrapped in Proxy). */
+function logIssueWalletFailure(err: unknown, connection: Connection) {
+  console.groupCollapsed("[AICW] Issue wallet failed — expand for details");
+  console.error(err);
+  const maybe = err as SendTransactionError | { logs?: string[]; message?: string };
+  if (err instanceof SendTransactionError) {
+    const te = err.transactionError;
+    console.error("[AICW] Summary:", te.message);
+    if (te.logs?.length) {
+      console.error("[AICW] Program logs:\n" + te.logs.join("\n"));
+    } else {
+      void err.getLogs(connection).then((logs) => {
+        if (logs?.length) console.error("[AICW] Program logs:\n" + logs.join("\n"));
+      });
+    }
+  } else if (Array.isArray(maybe.logs) && maybe.logs.length) {
+    console.error("[AICW] Program logs:\n" + maybe.logs.join("\n"));
+  } else if (typeof maybe.message === "string") {
+    console.error("[AICW] Message:", maybe.message);
+  }
+  console.groupEnd();
+}
+
+function solanaErrorText(err: unknown): string {
+  if (err instanceof SendTransactionError) {
+    const txMsg = (err as unknown as { transactionMessage?: string }).transactionMessage;
+    return [err.message, txMsg].filter((s): s is string => typeof s === "string" && s.length > 0).join(" ");
+  }
+  if (err instanceof Error) return err.message;
+  return String(err ?? "");
+}
+
+/** Same tx bytes were sent twice; the first submit usually landed on-chain. */
+function isAlreadyProcessedTransactionError(err: unknown): boolean {
+  return /already been processed/i.test(solanaErrorText(err));
+}
+
+function formatIssueWalletError(err: unknown): string {
+  const raw = solanaErrorText(err);
+  if (/already been processed/i.test(raw)) {
+    return "This transaction was already submitted (it may have succeeded). Check your wallet or Explorer.";
+  }
+  if (/already in use/i.test(raw)) {
+    return "This AI public key already has a wallet on this network.";
+  }
+  if (/User rejected|user rejected|rejected the request/i.test(raw)) {
+    return "Signature request was cancelled.";
+  }
+  if (/Insufficient|insufficient lamports|insufficient funds/i.test(raw)) {
+    return "Not enough SOL for fees or account rent.";
+  }
+  const oneLine = raw.replace(/\s+/g, " ").trim();
+  if (oneLine.length > 160) {
+    return "Could not issue wallet. Open the browser console (F12) for details.";
+  }
+  return `Could not issue wallet: ${oneLine}`;
+}
+
 export default function AicwIssuerPage() {
   const [wallet, setWallet] = useState<WalletState>({
     connected: false,
@@ -69,6 +133,35 @@ export default function AicwIssuerPage() {
     mpcWalletId: string;
   } | null>(null);
   const [successCopied, setSuccessCopied] = useState(false);
+  /** null = not checked yet for current pubkey; true = AICW PDA already exists */
+  const [aicwExistsOnChain, setAicwExistsOnChain] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    const s = form.aiAgentPubkey.trim();
+    if (s.length < 32) {
+      setAicwExistsOnChain(null);
+      return;
+    }
+    let cancelled = false;
+    setAicwExistsOnChain(null);
+    (async () => {
+      try {
+        const aiAgentPk = new PublicKey(s);
+        const [pda] = PublicKey.findProgramAddressSync(
+          [Buffer.from("aicw"), aiAgentPk.toBuffer()],
+          AICW_PROGRAM_ID,
+        );
+        const conn = new Connection(RPC, "confirmed");
+        const info = await conn.getAccountInfo(pda, "confirmed");
+        if (!cancelled) setAicwExistsOnChain(info !== null);
+      } catch {
+        if (!cancelled) setAicwExistsOnChain(null);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [form.aiAgentPubkey]);
 
   const connectWallet = useCallback(async () => {
     try {
@@ -119,7 +212,13 @@ export default function AicwIssuerPage() {
 
   const copySuccessBundle = useCallback(async () => {
     if (!issueSuccess) return;
-    const payload = `AI PUBLIC KEY : ${issueSuccess.aiPubkey}\nMPC wallet ID : ${issueSuccess.mpcWalletId}`;
+    const mpcId = issueSuccess.mpcWalletId.trim();
+    const payload = `-----
+AI PUBLIC KEY : ${issueSuccess.aiPubkey}
+MPC wallet ID : ${mpcId}
+
+Read  ${AICW_SKILL_MD_URL}
+`;
     try {
       await navigator.clipboard.writeText(payload);
       setSuccessCopied(true);
@@ -153,26 +252,37 @@ export default function AicwIssuerPage() {
 
     setIsSubmitting(true);
     const loadingToast = toast.loading("Issuing AICW wallet...");
+    const connection = new Connection(RPC, "confirmed");
+
+    const pk = form.aiAgentPubkey.trim();
+    const mpcId = form.mpcWalletId.trim();
+    let aiAgentPk: PublicKey;
+    let aicwWalletPda: PublicKey;
+    let aiWillPda: PublicKey;
+    let issuerPk: PublicKey;
+    try {
+      aiAgentPk = new PublicKey(pk);
+      [aicwWalletPda] = PublicKey.findProgramAddressSync(
+        [Buffer.from("aicw"), aiAgentPk.toBuffer()],
+        AICW_PROGRAM_ID,
+      );
+      [aiWillPda] = PublicKey.findProgramAddressSync(
+        [Buffer.from("will"), aicwWalletPda.toBuffer()],
+        AICW_PROGRAM_ID,
+      );
+      issuerPk = new PublicKey(wallet.publicKey!);
+    } catch {
+      toast.dismiss(loadingToast);
+      toast.error("Invalid public key.");
+      setIsSubmitting(false);
+      return;
+    }
 
     try {
       const phantom = (window as any).solana;
       if (!phantom?.isPhantom) {
         throw new Error("Phantom not available");
       }
-
-      const pk = form.aiAgentPubkey.trim();
-      const aiAgentPk = new PublicKey(pk);
-      const [aicwWalletPda] = PublicKey.findProgramAddressSync(
-        [Buffer.from("aicw"), aiAgentPk.toBuffer()],
-        AICW_PROGRAM_ID,
-      );
-      const [aiWillPda] = PublicKey.findProgramAddressSync(
-        [Buffer.from("will"), aicwWalletPda.toBuffer()],
-        AICW_PROGRAM_ID,
-      );
-
-      const connection = new Connection(RPC, "confirmed");
-      const issuerPk = new PublicKey(wallet.publicKey!);
 
       const walletAdapter = {
         publicKey: issuerPk,
@@ -217,7 +327,6 @@ export default function AicwIssuerPage() {
         })
         .rpc();
 
-      const mpcId = form.mpcWalletId.trim();
       setIssueSuccess({
         txSig,
         aiPubkey: pk,
@@ -238,9 +347,37 @@ export default function AicwIssuerPage() {
         aiAgentPubkey: aiAgentPk.toBase58(),
         aicwWalletPda: aicwWalletPda.toBase58(),
       });
-    } catch (err: any) {
+    } catch (err: unknown) {
       toast.dismiss(loadingToast);
-      toast.error(`Failed: ${err.message ?? "Unknown error"}`);
+
+      if (isAlreadyProcessedTransactionError(err)) {
+        try {
+          const sigs = await connection.getSignaturesForAddress(aicwWalletPda, {
+            limit: 1,
+          });
+          const recoveredSig = sigs[0]?.signature;
+          if (recoveredSig) {
+            setIssueSuccess({
+              txSig: recoveredSig,
+              aiPubkey: pk,
+              mpcWalletId: mpcId,
+            });
+            setSuccessCopied(false);
+            setShowSuccessModal(true);
+            setForm({
+              aiAgentPubkey: "",
+              mpcWalletId: "",
+            });
+            toast.success("Transaction was already confirmed — showing details.");
+            return;
+          }
+        } catch {
+          // fall through to generic error
+        }
+      }
+
+      logIssueWalletFailure(err, connection);
+      toast.error(formatIssueWalletError(err));
     } finally {
       setIsSubmitting(false);
     }
@@ -248,6 +385,8 @@ export default function AicwIssuerPage() {
 
   const hasPubkey = form.aiAgentPubkey.trim().length > 0;
   const hasWalletId = form.mpcWalletId.trim().length > 0;
+  const agentKeyReady = form.aiAgentPubkey.trim().length >= 32;
+  const canIssueNewWallet = wallet.connected && agentKeyReady && aicwExistsOnChain === false;
   const githubUrl = "https://github.com/aicw-protocol/aicw";
   const twitterUrl = "https://x.com/AICW_Protocol";
 
@@ -255,13 +394,17 @@ export default function AicwIssuerPage() {
     <div className="app-shell">
       <header className="top-nav">
         <div className="top-nav-inner">
-          <div className="brand">
-            <div className="brand-title">
-              AICW <span className="brand-chain">ON SOLANA</span>
-            </div>
+          <div className="top-nav-left">
+            <Link href="/" className="brand brand-link">
+              <div className="brand-title">
+                AICW <span className="brand-chain">ON SOLANA</span>
+              </div>
+            </Link>
           </div>
-
-          <div className="nav-icons">
+          <div className="top-nav-center">
+            <AppNav />
+          </div>
+          <div className="top-nav-right nav-icons">
             <a
               className="icon-link"
               href={githubUrl}
@@ -287,12 +430,11 @@ export default function AicwIssuerPage() {
       </header>
 
       <section className="hero">
-        <h1>Issue Wallet</h1>
-        <p>
-          Connect your wallet, load credentials from MPC, then issue on-chain.
-          After issuance succeeds, copy the AI public key and MPC wallet ID from
-          the success dialog and hand them to your AI agent.
-        </p>
+        <h1 className="hero-title">
+          <span className="hero-title-main">AICW</span>{" "}
+          <span className="hero-title-sub">AI-Controlled Wallet Standard</span>
+        </h1>
+        <p>Give your AI its own wallet. No human override. Ever.</p>
       </section>
 
       <section className="section">
@@ -361,11 +503,23 @@ export default function AicwIssuerPage() {
           >
             {isMpcLoading ? "Loading..." : "Load from MPC"}
           </button>
-          {hasPubkey ? (
+          {agentKeyReady && aicwExistsOnChain === true ? (
+            <span className="pill warn-pill" title="This AI public key already has an AICW wallet on this network.">
+              <i className="fa-solid fa-circle-exclamation" />
+              Already on-chain
+            </span>
+          ) : agentKeyReady && aicwExistsOnChain === null ? (
+            <span className="pill muted-pill">
+              <i className="fa-solid fa-spinner fa-spin" />
+              Checking on-chain…
+            </span>
+          ) : agentKeyReady && aicwExistsOnChain === false ? (
             <span className="pill ok-pill">
               <i className="fa-solid fa-check" />
               Ready to issue
             </span>
+          ) : hasPubkey ? (
+            <span className="pill muted-pill">Invalid AI public key length</span>
           ) : (
             <span className="pill muted-pill">Not loaded</span>
           )}
@@ -381,6 +535,12 @@ export default function AicwIssuerPage() {
             </a>
           </p>
         ) : null}
+        {aicwExistsOnChain === true ? (
+          <p className="muted" style={{ marginBottom: 12 }}>
+            This AI public key already has a wallet here. Use a different MPC identity, or open{" "}
+            <Link href="/explorer">Explorer</Link> to inspect it.
+          </p>
+        ) : null}
         <button
           type="button"
           onClick={() => {
@@ -388,13 +548,28 @@ export default function AicwIssuerPage() {
               toast.error("Connect your wallet first.");
               return;
             }
-            if (!form.aiAgentPubkey || form.aiAgentPubkey.length < 32) {
+            if (!agentKeyReady) {
               toast.error("Load AI public key from MPC first.");
+              return;
+            }
+            if (aicwExistsOnChain !== false) {
+              if (aicwExistsOnChain === true) {
+                toast.error("This AI public key already has a wallet on this network.");
+              } else {
+                toast.error("Wait for the on-chain check to finish.");
+              }
               return;
             }
             setShowIssueModal(true);
           }}
-          disabled={isSubmitting || !wallet.connected}
+          disabled={isSubmitting || !wallet.connected || !agentKeyReady || aicwExistsOnChain !== false}
+          title={
+            aicwExistsOnChain === true
+              ? "This AI public key already has an AICW wallet on this network."
+              : aicwExistsOnChain === null && agentKeyReady
+                ? "Checking on-chain…"
+                : undefined
+          }
           className="btn primary"
         >
           Issue AICW Wallet
@@ -446,7 +621,7 @@ export default function AicwIssuerPage() {
                   setShowIssueModal(false);
                   void handleIssue();
                 }}
-                disabled={isSubmitting}
+                disabled={isSubmitting || !canIssueNewWallet}
                 className="btn primary modal-issue-btn"
               >
                 {isSubmitting ? "Issuing..." : "Issue"}
@@ -508,8 +683,26 @@ export default function AicwIssuerPage() {
           </p>
           <p>
             AI public key:{" "}
-            <span className={hasPubkey ? "ok" : ""}>
-              {hasPubkey ? "Ready" : "Missing"}
+            <span
+              className={
+                !hasPubkey || !agentKeyReady
+                  ? ""
+                  : aicwExistsOnChain === false
+                    ? "ok"
+                    : aicwExistsOnChain === true
+                      ? "warn"
+                      : ""
+              }
+            >
+              {!hasPubkey
+                ? "Missing"
+                : !agentKeyReady
+                  ? "Invalid"
+                  : aicwExistsOnChain === null
+                    ? "Checking…"
+                    : aicwExistsOnChain
+                      ? "Already on-chain"
+                      : "Ready"}
             </span>
           </p>
           <p>

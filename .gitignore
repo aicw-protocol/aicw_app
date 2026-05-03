@@ -2,6 +2,7 @@
 node_modules
 out
 dist
+nested-preview
 .env
 .env.*
 npm-debug.log*

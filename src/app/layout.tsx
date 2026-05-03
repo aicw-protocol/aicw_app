@@ -28,7 +28,7 @@ export default function RootLayout({
             },
             success: {
               iconTheme: {
-                primary: "#9ca3af",
+                primary: "rgba(229, 231, 235, 0.58)",
                 secondary: "#111827",
               },
             },

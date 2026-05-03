@@ -1,0 +1,455 @@
+"use client";
+
+import { useCallback, useEffect, useMemo, useState } from "react";
+import toast from "react-hot-toast";
+import Link from "next/link";
+import { AppNav } from "../../components/AppNav";
+import {
+  EXPLORER_PAGE_SIZE,
+  aicwEntryMatchesQuery,
+  compareAicwEntries,
+  deathTimeoutDays,
+  formatUnix,
+  hydrateExplorerPage,
+  lamportsToSol,
+  loadAicwWalletEntriesSorted,
+  refreshExplorerRow,
+  type AicwWalletEntry,
+  type ExplorerListSortKey,
+  type ExplorerRow,
+} from "../../lib/explorerData";
+
+const githubUrl = "https://github.com/aicw-protocol/aicw";
+const twitterUrl = "https://x.com/AICW_Protocol";
+
+function shortPk(s: string): string {
+  if (s.length <= 12) return s;
+  return `${s.slice(0, 4)}…${s.slice(-4)}`;
+}
+
+function volumeSol(volLamportsStr: string): number {
+  try {
+    return Number(volLamportsStr) / 1e9;
+  } catch {
+    return 0;
+  }
+}
+
+function SortHeader({
+  abbrev,
+  tooltip,
+  sortKey,
+  activeKey,
+  dir,
+  onSort,
+}: {
+  abbrev: string;
+  tooltip: string;
+  sortKey: ExplorerListSortKey;
+  activeKey: ExplorerListSortKey;
+  dir: 1 | -1;
+  onSort: (k: ExplorerListSortKey) => void;
+}) {
+  const active = activeKey === sortKey;
+  return (
+    <th scope="col" className="explorer-th-sort" title={tooltip}>
+      <button
+        type="button"
+        className="explorer-sort-btn"
+        title={tooltip}
+        aria-label={tooltip}
+        onClick={() => onSort(sortKey)}
+      >
+        {abbrev}
+        {active ? (dir === 1 ? " ▲" : " ▼") : ""}
+      </button>
+    </th>
+  );
+}
+
+function StaticTh({ abbrev, tooltip }: { abbrev: string; tooltip: string }) {
+  return (
+    <th scope="col" className="explorer-th-static" title={tooltip}>
+      {abbrev}
+    </th>
+  );
+}
+
+export default function ExplorerPage() {
+  const [coreEntries, setCoreEntries] = useState<AicwWalletEntry[]>([]);
+  const [pageRows, setPageRows] = useState<ExplorerRow[]>([]);
+  const [loadingCore, setLoadingCore] = useState(true);
+  const [hydratingPage, setHydratingPage] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [query, setQuery] = useState("");
+  const [sortKey, setSortKey] = useState<ExplorerListSortKey>("createdAtUnix");
+  const [sortDir, setSortDir] = useState<1 | -1>(-1);
+  const [page, setPage] = useState(1);
+  const [refreshingPdas, setRefreshingPdas] = useState<Set<string>>(new Set());
+
+  const loadCore = useCallback(async () => {
+    setLoadingCore(true);
+    setError(null);
+    setCoreEntries([]);
+    setPageRows([]);
+    try {
+      const data = await loadAicwWalletEntriesSorted();
+      setCoreEntries(data);
+      setPage(1);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to load wallets");
+      toast.error("Failed to load wallet list");
+    } finally {
+      setLoadingCore(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void loadCore();
+  }, [loadCore]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [query]);
+
+  const onSort = useCallback(
+    (k: ExplorerListSortKey) => {
+      if (k === sortKey) {
+        setSortDir((d) => (d === 1 ? -1 : 1));
+      } else {
+        setSortKey(k);
+        setSortDir(1);
+      }
+      setPage(1);
+    },
+    [sortKey],
+  );
+
+  const filteredSorted = useMemo(() => {
+    const filtered = coreEntries.filter((e) => aicwEntryMatchesQuery(e, query));
+    const copy = [...filtered];
+    copy.sort((a, b) => compareAicwEntries(a, b, sortKey, sortDir));
+    return copy;
+  }, [coreEntries, query, sortKey, sortDir]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredSorted.length / EXPLORER_PAGE_SIZE));
+  const pageClamped = Math.min(Math.max(1, page), totalPages);
+
+  useEffect(() => {
+    if (page !== pageClamped) setPage(pageClamped);
+  }, [page, pageClamped]);
+
+  const pageSlice = useMemo(
+    () =>
+      filteredSorted.slice(
+        (pageClamped - 1) * EXPLORER_PAGE_SIZE,
+        pageClamped * EXPLORER_PAGE_SIZE,
+      ),
+    [filteredSorted, pageClamped],
+  );
+
+  useEffect(() => {
+    if (loadingCore) return;
+    if (pageSlice.length === 0) {
+      setPageRows([]);
+      return;
+    }
+    let cancelled = false;
+    setHydratingPage(true);
+    void hydrateExplorerPage(pageSlice)
+      .then((rows) => {
+        if (!cancelled) setPageRows(rows);
+      })
+      .catch(() => {
+        if (!cancelled) {
+          toast.error("Failed to load this page from RPC");
+          setPageRows([]);
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setHydratingPage(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [loadingCore, pageSlice]);
+
+  const onRefreshRow = useCallback(async (aicwPda: string) => {
+    setRefreshingPdas((s) => new Set(s).add(aicwPda));
+    try {
+      const updated = await refreshExplorerRow(aicwPda);
+      if (!updated) {
+        toast.error("Refresh failed for this row");
+        return;
+      }
+      setPageRows((prev) => prev.map((r) => (r.aicwPda === aicwPda ? updated : r)));
+    } catch {
+      toast.error("Refresh failed");
+    } finally {
+      setRefreshingPdas((s) => {
+        const n = new Set(s);
+        n.delete(aicwPda);
+        return n;
+      });
+    }
+  }, []);
+
+  const copyAiPublicKey = useCallback(async (fullKey: string) => {
+    try {
+      await navigator.clipboard.writeText(fullKey);
+      toast.success("AI public key copied");
+    } catch {
+      toast.error("Copy failed");
+    }
+  }, []);
+
+  return (
+    <div className="app-shell explorer-shell">
+      <header className="top-nav">
+        <div className="top-nav-inner">
+          <div className="top-nav-left">
+            <Link href="/" className="brand brand-link">
+              <div className="brand-title">
+                AICW <span className="brand-chain">ON SOLANA</span>
+              </div>
+            </Link>
+          </div>
+          <div className="top-nav-center">
+            <AppNav />
+          </div>
+          <div className="top-nav-right nav-icons">
+            <a
+              className="icon-link"
+              href={githubUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label="GitHub"
+              title="GitHub"
+            >
+              <i className="fa-brands fa-github" />
+            </a>
+            <a
+              className="icon-link"
+              href={twitterUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label="Twitter"
+              title="Twitter"
+            >
+              <i className="fa-brands fa-twitter" />
+            </a>
+          </div>
+        </div>
+      </header>
+
+      <section className="hero">
+        <h1>Explorer</h1>
+        <p>
+          Read-only overview of issued AI agent wallets: issuance records, balances, wills,
+          heartbeats, and on-chain activity in one place.
+        </p>
+      </section>
+
+      <section className="section explorer-toolbar">
+        <div className="explorer-search-row">
+          <label className="explorer-search-label" htmlFor="explorer-q">
+            Search
+          </label>
+          <input
+            id="explorer-q"
+            type="search"
+            className="explorer-search-input"
+            placeholder="AI key, issuer, PDA, tx counts, volume, created unix…"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            autoComplete="off"
+          />
+        </div>
+        {error ? <p className="explorer-error">{error}</p> : null}
+        {!loadingCore && !error ? (
+          <p className="muted explorer-count">
+            {filteredSorted.length} wallet{filteredSorted.length === 1 ? "" : "s"} — page{" "}
+            {pageClamped}/{totalPages} ({EXPLORER_PAGE_SIZE} per page)
+          </p>
+        ) : null}
+      </section>
+
+      <section className="section explorer-table-wrap">
+        {loadingCore ? (
+          <p className="muted">Loading wallet accounts (one program query)…</p>
+        ) : (
+          <>
+            {hydratingPage ? (
+              <p className="muted" style={{ marginBottom: 8 }}>
+                Loading will + balances for this page…
+              </p>
+            ) : null}
+            <div className="explorer-pager row" style={{ marginBottom: 12, gap: 12, flexWrap: "wrap" }}>
+              <button
+                type="button"
+                className="btn"
+                disabled={pageClamped <= 1 || hydratingPage}
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+              >
+                Previous
+              </button>
+              <span className="muted" style={{ alignSelf: "center" }}>
+                Page {pageClamped} / {totalPages}
+              </span>
+              <button
+                type="button"
+                className="btn"
+                disabled={pageClamped >= totalPages || hydratingPage}
+                onClick={() => setPage((p) => p + 1)}
+              >
+                Next
+              </button>
+            </div>
+            <div className="explorer-table-scroll">
+              <table className="explorer-table">
+                <thead>
+                  <tr>
+                    <SortHeader
+                      abbrev="AI PK"
+                      tooltip="AI Public Key — the AI agent’s Solana pubkey. Click the cell below to copy the full address."
+                      sortKey="aiAgentPubkey"
+                      activeKey={sortKey}
+                      dir={sortDir}
+                      onSort={onSort}
+                    />
+                    <StaticTh
+                      abbrev="Bal"
+                      tooltip="Balance (SOL) — loaded with this page only. Column sort: use Iss / Tx / Vol / Created headers."
+                    />
+                    <StaticTh
+                      abbrev="Ben"
+                      tooltip="Will beneficiaries — loaded with this page only."
+                    />
+                    <StaticTh abbrev="W+" tooltip="Will activated (AIWill) — per-page load." />
+                    <StaticTh abbrev="Wx" tooltip="Will executed — per-page load." />
+                    <StaticTh abbrev="HB" tooltip="Last heartbeat — per-page load." />
+                    <SortHeader
+                      abbrev="Iss"
+                      tooltip="Issuer — human wallet pubkey that signed issuance."
+                      sortKey="issuerPubkey"
+                      activeKey={sortKey}
+                      dir={sortDir}
+                      onSort={onSort}
+                    />
+                    <SortHeader
+                      abbrev="Tx#"
+                      tooltip="Total Transactions — total transaction count on the AICWallet account."
+                      sortKey="totalTransactions"
+                      activeKey={sortKey}
+                      dir={sortDir}
+                      onSort={onSort}
+                    />
+                    <SortHeader
+                      abbrev="Vol"
+                      tooltip="Total Volume (SOL) — cumulative transfer volume from total_volume (lamports as SOL)."
+                      sortKey="totalVolumeLamports"
+                      activeKey={sortKey}
+                      dir={sortDir}
+                      onSort={onSort}
+                    />
+                    <SortHeader
+                      abbrev="D+"
+                      tooltip="Decisions Made — approved AI decision count."
+                      sortKey="decisionsMade"
+                      activeKey={sortKey}
+                      dir={sortDir}
+                      onSort={onSort}
+                    />
+                    <SortHeader
+                      abbrev="D-"
+                      tooltip="Decisions Rejected — rejected AI decision count."
+                      sortKey="decisionsRejected"
+                      activeKey={sortKey}
+                      dir={sortDir}
+                      onSort={onSort}
+                    />
+                    <SortHeader
+                      abbrev="Crt"
+                      tooltip="Created At — wallet account creation time (UTC). Default: newest first."
+                      sortKey="createdAtUnix"
+                      activeKey={sortKey}
+                      dir={sortDir}
+                      onSort={onSort}
+                    />
+                    <StaticTh abbrev="Dth" tooltip="Death timeout (days) — per-page load." />
+                    <StaticTh abbrev="St" tooltip="Alive / Dead / Executed — per-page load." />
+                    <th scope="col" className="explorer-th-action" title="Refresh — re-fetch this row from the RPC.">
+                      <span className="explorer-th-icon" aria-hidden="true">
+                        <i className="fa-solid fa-arrows-rotate" />
+                      </span>
+                      <span className="visually-hidden">Refresh</span>
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {pageRows.map((row) => (
+                    <tr key={row.aicwPda}>
+                      <td>
+                        <button
+                          type="button"
+                          className="explorer-pk-copy explorer-mono"
+                          title={`${row.aiAgentPubkey} — click to copy`}
+                          onClick={() => void copyAiPublicKey(row.aiAgentPubkey)}
+                        >
+                          {shortPk(row.aiAgentPubkey)}
+                        </button>
+                      </td>
+                      <td className="explorer-num">{lamportsToSol(row.balanceLamports)}</td>
+                      <td className="explorer-benef">{row.beneficiariesText}</td>
+                      <td>{row.willActivated ? "Yes" : "No"}</td>
+                      <td>{row.willExecuted ? "Yes" : "No"}</td>
+                      <td className="explorer-ts">{formatUnix(row.lastHeartbeatUnix)}</td>
+                      <td>
+                        <span className="explorer-mono" title={row.issuerPubkey}>
+                          {shortPk(row.issuerPubkey)}
+                        </span>
+                      </td>
+                      <td className="explorer-num">{row.totalTransactions}</td>
+                      <td className="explorer-num">{volumeSol(row.totalVolumeLamports).toFixed(6)}</td>
+                      <td className="explorer-num">{row.decisionsMade}</td>
+                      <td className="explorer-num">{row.decisionsRejected}</td>
+                      <td className="explorer-ts">{formatUnix(row.createdAtUnix)}</td>
+                      <td className="explorer-num">{deathTimeoutDays(row.deathTimeoutSeconds)}</td>
+                      <td>
+                        <span className={`explorer-badge explorer-badge--${row.status.toLowerCase()}`}>
+                          {row.status}
+                        </span>
+                      </td>
+                      <td>
+                        <button
+                          type="button"
+                          className="explorer-icon-btn"
+                          title="Re-fetch this row from the RPC"
+                          aria-label="Refresh row"
+                          disabled={refreshingPdas.has(row.aicwPda)}
+                          onClick={() => void onRefreshRow(row.aicwPda)}
+                        >
+                          <i
+                            className={`fa-solid fa-arrows-rotate${refreshingPdas.has(row.aicwPda) ? " fa-spin" : ""}`}
+                            aria-hidden="true"
+                          />
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              {!pageRows.length && !hydratingPage ? (
+                <p className="muted" style={{ marginTop: 12 }}>
+                  {filteredSorted.length === 0
+                    ? "No wallets match your search."
+                    : "No rows on this page."}
+                </p>
+              ) : null}
+            </div>
+          </>
+        )}
+      </section>
+    </div>
+  );
+}
