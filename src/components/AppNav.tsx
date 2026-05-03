@@ -2,9 +2,11 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { appBasePath } from "../lib/appBasePath";
 
 export function AppNav() {
   const pathname = usePathname();
+  const skillHref = `${appBasePath()}/aicw_skill.md`;
   return (
     <nav className="nav-menu" aria-label="Main">
       <Link
@@ -22,7 +24,7 @@ export function AppNav() {
         Explorer
       </Link>
       <a
-        href="/aicw_skill.md"
+        href={skillHref}
         className="nav-menu-link"
         target="_blank"
         rel="noopener noreferrer"

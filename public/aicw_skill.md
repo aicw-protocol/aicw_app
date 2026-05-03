@@ -329,7 +329,8 @@ def ix_update_will(
 
 ## Where this file is served
 
-- Static URL on the app host: **`/aicw_skill.md`** (e.g. `https://your-domain/aicw_skill.md`).
+- On **GitHub Project Pages** (`aicw_app`): **`https://aicw-protocol.github.io/aicw_app/aicw_skill.md`** (path includes the repo segment `/aicw_app/`).
+- Local dev (no `basePath`): **`/aicw_skill.md`** on the dev server host.
 
 ---
 
