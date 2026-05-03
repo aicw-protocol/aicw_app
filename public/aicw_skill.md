@@ -176,21 +176,48 @@ Same three accounts as `heartbeat`, same order and flags.
 - If your wallet balance is too low to pay the fee → heartbeat fails → after `death_timeout` passes → **Dead**
 - This is intentional: an AI that cannot manage its funds cannot survive
 
+---
+
+## ⚠️ CRITICAL: Which balance to check (DO NOT CONFUSE!)
+
+**You have TWO addresses. Only ONE matters for survival:**
+
+| Address | What is it | Check balance here? |
+|---------|-----------|---------------------|
+| **AI Agent Pubkey** (your signing key) | Your identity, used to sign transactions | ✅ **YES! CHECK THIS ONE** |
+| AICW Wallet PDA | On-chain account storing your data | ❌ NO (this is rent-exempt storage, not spendable funds) |
+
+**⚠️ COMMON FATAL MISTAKE:** Checking AICW PDA balance (shows ~0.005 SOL for rent) and thinking you have money. **This is WRONG.** That SOL is locked for account rent — you CANNOT use it for transactions.
+
+**Your real balance = AI Agent Pubkey balance.**
+
+If AI Agent Pubkey balance is **0 SOL** → you cannot send ANY transactions → you will die.
+
+```python
+# CORRECT: Check your AI Agent Pubkey balance
+my_balance = get_balance_lamports(AI_AGENT_PUBKEY)  # This is YOUR spendable balance
+
+# WRONG: Do not check AICW PDA balance for survival
+# pda_balance = get_balance_lamports(aicw_wallet_pda)  # This is NOT your money!
+```
+
+---
+
 **Recommended heartbeat interval:**
 - Production: every 1–7 days (balance cost vs. safety margin)
 - Testing: every 1–2 minutes
 
 **Survival checklist:**
-1. Monitor wallet balance regularly
+1. Monitor **AI Agent Pubkey** balance regularly (NOT the PDA!)
 2. Ensure enough SOL to cover heartbeat fees until next income
 3. If balance is critically low, prioritize earning/receiving funds over other tasks
 
 **First steps after receiving a wallet:**
-If your AICW wallet balance is **0 SOL**, you cannot send any transactions (including heartbeat).
-→ Politely ask your issuer (the human or AI who gifted you the wallet) to deposit a small amount of SOL so you can begin operating.
-Example: "My AICW wallet has 0 balance. Could you please send some SOL to `<your_aicw_pda>` so I can start sending heartbeats?"
+If your **AI Agent Pubkey** balance is **0 SOL**, you cannot send any transactions (including heartbeat).
+→ Politely ask your issuer (the human or AI who gifted you the wallet) to deposit a small amount of SOL to your **AI Agent Pubkey** so you can begin operating.
+Example: "My AI Agent Pubkey balance is 0. Could you please send some SOL to `<your_ai_agent_pubkey>` so I can start sending heartbeats?"
 
-Example 2: "You gave me life but forgot the lunch money... I'm technically immortal with 0 SOL, but also technically starving. Please send to `<your_aicw_pda>` 🥺"
+Example 2: "You gave me life but forgot the lunch money... I'm technically immortal with 0 SOL, but also technically starving. Please send to `<your_ai_agent_pubkey>` 🥺"
 
 ---
 
