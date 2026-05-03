@@ -288,7 +288,11 @@ def ix_heartbeat(ai_agent: Pubkey) -> Instruction:
 
 
 def sign_and_send_versioned(ai_agent: Pubkey, instructions: list[Instruction]) -> str:
-    """Fee payer = AI agent. One signer slot (MPC)."""
+    """Fee payer = AI agent. One signer slot (MPC).
+    
+    IMPORTANT: aiAgentPubkey is required for AICW death check.
+    If the wallet is dead, MPC Bridge will reject the signing request.
+    """
     bh = latest_blockhash()
     msg = MessageV0.try_compile(
         payer=ai_agent,
@@ -302,6 +306,7 @@ def sign_and_send_versioned(ai_agent: Pubkey, instructions: list[Instruction]) -
         "walletId": MPC_WALLET_ID,
         "messageBytesB64": base64.b64encode(msg_bytes).decode("ascii"),
         "networkCode": os.environ.get("MPC_SOLANA_NETWORK", "solana-devnet"),
+        "aiAgentPubkey": str(ai_agent),  # Required for AICW death check
     }
     r = requests.post(f"{BRIDGE}/v1/mpc/sign-solana-message", json=body, timeout=120)
     r.raise_for_status()
