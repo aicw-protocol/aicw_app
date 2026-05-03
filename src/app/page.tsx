@@ -18,7 +18,10 @@ const ISSUER_HANDOFF_DOCS_URL =
 
 /** Full URL to `aicw_skill.md` for the issuance copy bundle (agent handoff). */
 const AICW_SKILL_MD_URL =
-  process.env.NEXT_PUBLIC_AICW_SKILL_MD_URL?.trim() ?? "http://localhost:4002/aicw_skill.md";
+  process.env.NEXT_PUBLIC_AICW_SKILL_MD_URL?.trim() ??
+  (process.env.NODE_ENV === "production"
+    ? "https://aicw-protocol.github.io/aicw_app/aicw_skill.md"
+    : "http://localhost:4002/aicw_skill.md");
 
 const RPC =
   process.env.NEXT_PUBLIC_SOLANA_RPC ?? "https://api.devnet.solana.com";
@@ -217,7 +220,7 @@ export default function AicwIssuerPage() {
 AI PUBLIC KEY : ${issueSuccess.aiPubkey}
 MPC wallet ID : ${mpcId}
 
-Read  ${AICW_SKILL_MD_URL}
+Read ${AICW_SKILL_MD_URL}
 `;
     try {
       await navigator.clipboard.writeText(payload);
@@ -391,7 +394,7 @@ Read  ${AICW_SKILL_MD_URL}
   const twitterUrl = "https://x.com/AICW_Protocol";
 
   return (
-    <div className="app-shell">
+    <div className="app-shell issue-shell">
       <header className="top-nav">
         <div className="top-nav-inner">
           <div className="top-nav-left">
@@ -429,6 +432,8 @@ Read  ${AICW_SKILL_MD_URL}
         </div>
       </header>
 
+      <div className="issue-layout">
+        <div className="issue-layout-main">
       <section className="hero">
         <h1 className="hero-title">
           <span className="hero-title-main">AICW</span>{" "}
@@ -576,6 +581,67 @@ Read  ${AICW_SKILL_MD_URL}
         </button>
       </section>
 
+      <section className="section">
+        <h2>Status</h2>
+        <div className="status-list">
+          <p>
+            Wallet:{" "}
+            <span className={wallet.connected ? "ok" : ""}>
+              {wallet.connected ? "Connected" : "Not connected"}
+            </span>
+          </p>
+          <p>
+            AI public key:{" "}
+            <span
+              className={
+                !hasPubkey || !agentKeyReady
+                  ? ""
+                  : aicwExistsOnChain === false
+                    ? "ok"
+                    : aicwExistsOnChain === true
+                      ? "warn"
+                      : ""
+              }
+            >
+              {!hasPubkey
+                ? "Missing"
+                : !agentKeyReady
+                  ? "Invalid"
+                  : aicwExistsOnChain === null
+                    ? "Checking…"
+                    : aicwExistsOnChain
+                      ? "Already on-chain"
+                      : "Ready"}
+            </span>
+          </p>
+          <p>
+            MPC wallet ID:{" "}
+            <span className={hasWalletId ? "ok" : ""}>
+              {hasWalletId ? "Present" : "Not from MPC (optional)"}
+            </span>
+          </p>
+        </div>
+      </section>
+        </div>
+
+        <aside className="issue-ecosystem" aria-label="Ecosystem">
+          <h2 className="issue-ecosystem-title">Ecosystem</h2>
+          <ul className="issue-ecosystem-list">
+            <li>
+              <a
+                href="https://predict.com"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="issue-ecosystem-link"
+              >
+                Predict.com
+              </a>
+              <span className="issue-ecosystem-desc"> — AI-powered prediction betting app</span>
+            </li>
+          </ul>
+        </aside>
+      </div>
+
       {showIssueModal && (
         <div
           className="modal-overlay"
@@ -650,9 +716,18 @@ Read  ${AICW_SKILL_MD_URL}
               <pre className="modal-success-value terminal-value">{issueSuccess.mpcWalletId || "—"}</pre>
             </div>
 
-            <button type="button" onClick={() => void copySuccessBundle()} className="btn modal-copy-btn">
+            <p className="muted" style={{ fontSize: 12, marginTop: 10, marginBottom: 0, wordBreak: "break-all" }}>
+              Clipboard will include: <strong>Read {AICW_SKILL_MD_URL}</strong>
+            </p>
+
+            <button
+              type="button"
+              onClick={() => void copySuccessBundle()}
+              className="btn modal-copy-btn"
+              title={`Copies keys and: Read ${AICW_SKILL_MD_URL}`}
+            >
               <i className={`fa-solid ${successCopied ? "fa-check" : "fa-copy"}`} style={{ marginRight: 6 }} />
-              {successCopied ? "Copied" : "Copy"}
+              {successCopied ? "Copied" : `Copy (+ Read skill)`}
             </button>
 
             <button
@@ -671,48 +746,6 @@ Read  ${AICW_SKILL_MD_URL}
           </div>
         </div>
       )}
-
-      <section className="section">
-        <h2>Status</h2>
-        <div className="status-list">
-          <p>
-            Wallet:{" "}
-            <span className={wallet.connected ? "ok" : ""}>
-              {wallet.connected ? "Connected" : "Not connected"}
-            </span>
-          </p>
-          <p>
-            AI public key:{" "}
-            <span
-              className={
-                !hasPubkey || !agentKeyReady
-                  ? ""
-                  : aicwExistsOnChain === false
-                    ? "ok"
-                    : aicwExistsOnChain === true
-                      ? "warn"
-                      : ""
-              }
-            >
-              {!hasPubkey
-                ? "Missing"
-                : !agentKeyReady
-                  ? "Invalid"
-                  : aicwExistsOnChain === null
-                    ? "Checking…"
-                    : aicwExistsOnChain
-                      ? "Already on-chain"
-                      : "Ready"}
-            </span>
-          </p>
-          <p>
-            MPC wallet ID:{" "}
-            <span className={hasWalletId ? "ok" : ""}>
-              {hasWalletId ? "Present" : "Not from MPC (optional)"}
-            </span>
-          </p>
-        </div>
-      </section>
     </div>
   );
 }

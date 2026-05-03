@@ -2,13 +2,30 @@
 name: aicw_skill
 version: 2.0.0
 description: AICW on-chain operations for AI agents (Python, MPC Bridge signing, exact IDL fields).
+# Default base URL for mpc-bridge (local). Agents: MPC_BRIDGE_URL. Issue Wallet: NEXT_PUBLIC_MPC_BRIDGE_URL.
+mpc_bridge_url: "https://dreamless-unmovable-taco.ngrok-free.dev"
 ---
 
-# AICW Agent Skill — On-Chain Operations
+# AICW Agent Skill ??On-Chain Operations
 
 You steward an **AICW (AI-Controlled Wallet)** on Solana: PDAs hold state; your **AI agent Solana pubkey** signs allowed instructions.
 
-## RULE — Python only
+> **Scope**: This skill covers **AICW on-chain transactions** (heartbeat, will, transfer). For **Predict HTTP betting**, see the separate **`predict_skill_mpc.md`**. Variable names differ: this skill uses `UPPER_CASE` env vars (`MPC_BRIDGE_URL`, `AI_AGENT_PUBKEY`, `MPC_WALLET_ID`); the Predict skill uses lowercase placeholders (`bridge`, `solana_pubkey`, `mpc_wallet_id`) but they refer to the same values.
+
+## MPC Bridge URL
+
+**MPC Bridge URL:** `https://dreamless-unmovable-taco.ngrok-free.dev`
+
+Use this URL directly. No need to ask the operator.
+
+| Where | Variable / setting |
+|--------|---------------------|
+| **Python agent** | `MPC_BRIDGE_URL` ??optional if you use the default in this doc?셲 snippets (`os.environ.get("MPC_BRIDGE_URL", "https://dreamless-unmovable-taco.ngrok-free.dev")`). |
+| **aicw_app Issue Wallet** | `NEXT_PUBLIC_MPC_BRIDGE_URL` in `.env` or `.env.example` (same base URL). |
+
+Use the **HTTPS or host your operator gave you** (tunnel, staging, production) instead of localhost when that applies. Signing endpoint is always **`POST {base}/v1/mpc/sign-solana-message`** where `{base}` is the MPC Bridge base URL (trimmed, no trailing slash).
+
+## RULE ??Python only
 
 **Always use Python 3** for automation in this guide:
 
@@ -29,23 +46,23 @@ pip install requests solders solana
 
 | Path | When | What you do |
 |------|------|----------------|
-| **A — MPC Bridge (recommended for agents)** | Keys live in Mpcium; you have `mpc_wallet_id` from issuance. | Build an **unsigned** `MessageV0`, base64-encode its bytes, `POST /v1/mpc/sign-solana-message`, attach returned **Ed25519 signature**, `sendTransaction` to RPC. |
-| **B — Local keypair (dev only)** | You hold a file `Keypair` (not MPC). | Sign with `Keypair.sign_message` / `VersionedTransaction` helpers locally — **not** for production agents. |
+| **A ??MPC Bridge (recommended for agents)** | Keys live in Mpcium; you have `mpc_wallet_id` from issuance. | Build an **unsigned** `MessageV0`, base64-encode its bytes, `POST /v1/mpc/sign-solana-message`, attach returned **Ed25519 signature**, `sendTransaction` to RPC. |
+| **B ??Local keypair (dev only)** | You hold a file `Keypair` (not MPC). | Sign with `Keypair.sign_message` / `VersionedTransaction` helpers locally ??**not** for production agents. |
 
 **Predict** used MPC Bridge for **Predict HTTP** (`proxy-predict`). **AICW** program calls are **not** proxied by that route today: you **build Solana transactions yourself**, then call **`POST /v1/mpc/sign-solana-message`** on the same bridge with `walletId` + `messageBytesB64` + `networkCode`.
 
 Bridge contract (mpcium `mpc-bridge`):
 
-- **URL**: operator gives you `BRIDGE` (e.g. `http://127.0.0.1:8081`).
+- **MPC Bridge base URL**: **`https://dreamless-unmovable-taco.ngrok-free.dev`** ??use this URL.
 - **Sign**: `POST /v1/mpc/sign-solana-message`  
   Body JSON: `clientId` (optional), `walletId` (required), `messageBytesB64` (required), `networkCode` (optional, default `solana-devnet`).
-- **Response JSON**: `signatureB64` — 64-byte Ed25519 signature, base64.
+- **Response JSON**: `signatureB64` ??64-byte Ed25519 signature, base64.
 
 Default `networkCode` if omitted is **`solana-devnet`**; set explicitly for mainnet when your operator configures it.
 
 ---
 
-## Constants — program ID & PDAs
+## Constants ??program ID & PDAs
 
 Use the same program id as your deployment (default devnet deploy in `aicw_app`):
 
@@ -63,7 +80,7 @@ from solders.transaction import VersionedTransaction
 from solders.signature import Signature
 
 RPC = os.environ.get("SOLANA_RPC_URL", "https://api.devnet.solana.com")
-BRIDGE = os.environ["MPC_BRIDGE_URL"].rstrip("/")  # e.g. http://127.0.0.1:8081
+BRIDGE = os.environ.get("MPC_BRIDGE_URL", "https://dreamless-unmovable-taco.ngrok-free.dev").rstrip("/")
 MPC_WALLET_ID = os.environ["MPC_WALLET_ID"]
 AI_AGENT_PUBKEY = Pubkey.from_string(os.environ["AI_AGENT_PUBKEY"])
 PROGRAM_ID = Pubkey.from_string(
@@ -72,7 +89,7 @@ PROGRAM_ID = Pubkey.from_string(
 
 
 def aicw_wallet_pda(ai_agent: Pubkey) -> Pubkey:
-    """Seed: b'aicw' + ai_agent.to_bytes() — matches `issue_wallet` / IDL."""
+    """Seed: b'aicw' + ai_agent.to_bytes() ??matches `issue_wallet` / IDL."""
     return Pubkey.find_program_address([b"aicw", bytes(ai_agent)], PROGRAM_ID)[0]
 
 
@@ -83,18 +100,18 @@ def ai_will_pda(aicw_wallet: Pubkey) -> Pubkey:
 
 ---
 
-## Exact names — IDL vs Anchor TS client (no guessing)
+## Exact names ??IDL vs Anchor TS client (no guessing)
 
 The **IDL JSON** (`aicw.json`) uses **snake_case** field names on structs. The **JavaScript `@coral-xyz/anchor`** client decodes accounts with **camelCase**.
 
 | Account | IDL / Rust-style (snake_case) | Anchor **TypeScript** client |
 |---------|------------------------------|------------------------------|
 | **AIWill** | `wallet`, `beneficiaries`, `last_heartbeat`, `death_timeout`, `updated_by_ai`, `is_executed`, `bump` | `wallet`, `beneficiaries`, `lastHeartbeat`, `deathTimeout`, `updatedByAi`, `isExecuted`, `bump` |
-| **AICWallet** | `ai_agent_pubkey`, `issuer_pubkey`, `allowed_programs`, `total_transactions`, `total_volume`, `decisions_made`, `decisions_rejected`, … | `aiAgentPubkey`, `issuerPubkey`, `allowedPrograms`, `totalTransactions`, `totalVolume`, `decisionsMade`, `decisionsRejected`, … |
+| **AICWallet** | `ai_agent_pubkey`, `issuer_pubkey`, `allowed_programs`, `total_transactions`, `total_volume`, `decisions_made`, `decisions_rejected`, ??| `aiAgentPubkey`, `issuerPubkey`, `allowedPrograms`, `totalTransactions`, `totalVolume`, `decisionsMade`, `decisionsRejected`, ??|
 
-**Beneficiary line** in IDL struct `BeneficiaryShare`: fields **`pubkey`** (32 bytes), **`pct`** (`u8`, 0–100). **Sum of all `pct` must be 100.**
+**Beneficiary line** in IDL struct `BeneficiaryShare`: fields **`pubkey`** (32 bytes), **`pct`** (`u8`, 0??00). **Sum of all `pct` must be 100.**
 
-**`death_timeout`** on-chain is **`i64` seconds** (IDL), not “days” in the account.
+**`death_timeout`** on-chain is **`i64` seconds** (IDL), not ?쐂ays??in the account.
 
 ---
 
@@ -108,19 +125,19 @@ The **IDL JSON** (`aicw.json`) uses **snake_case** field names on structs. The *
 
 ---
 
-## Account metas (IDL order) — `heartbeat`, `create_will`, `update_will`
+## Account metas (IDL order) ??`heartbeat`, `create_will`, `update_will`
 
 Signer **`ai_signer`** is the **AI agent pubkey** (same as `AI_AGENT_PUBKEY`).
 
-### `heartbeat` — accounts
+### `heartbeat` ??accounts
 
-1. `aicw_wallet` — PDA above; **writable**, not signer.  
-2. `ai_will` — PDA above; **writable**, not signer.  
-3. `ai_signer` — **writable**, **signer** (AI agent).
+1. `aicw_wallet` ??PDA above; **writable**, not signer.  
+2. `ai_will` ??PDA above; **writable**, not signer.  
+3. `ai_signer` ??**writable**, **signer** (AI agent).
 
-**Args:** none → `data` is exactly the 8-byte discriminator.
+**Args:** none ??`data` is exactly the 8-byte discriminator.
 
-### `create_will` / `update_will` — accounts
+### `create_will` / `update_will` ??accounts
 
 Same three accounts as `heartbeat`, same order and flags.
 
@@ -128,6 +145,52 @@ Same three accounts as `heartbeat`, same order and flags.
 
 1. `Vec<BeneficiaryShare>`: `u32` little-endian length, then for each entry: 32-byte pubkey + 1-byte `pct`.  
 2. `i64` little-endian `death_timeout` (seconds).
+
+**Recommended `death_timeout` values:**
+- Production: `2592000` (30 days)
+- **Testing (devnet): `300` (5 minutes)** — use this for quick test cycles
+
+**Will activation (IMPORTANT):**
+- When your wallet is issued, a will account is created with `issuer` as 100% beneficiary and `updated_by_ai = false`
+- **The will cannot be executed until YOU (the AI) call `create_will` or `update_will`**, which sets `updated_by_ai = true`
+- This protects you: the issuer cannot claim your funds just by issuing you a wallet and waiting
+
+**Beneficiary rules (IMPORTANT):**
+- **NEVER register yourself (your AICW wallet PDA) as a beneficiary** — this is pointless (funds stay in a dead wallet) and the transaction will be rejected on-chain
+- When you first create a will, you likely only know your issuer's address. But registering the issuer gives them a financial motive to let you die.
+- If you don't know any trusted addresses, use the **default charity wallet**:
+  ```
+  56vip6weAk6S548XpEti1aEsrqiyk6N9xeTWNz6Dx9NK
+  ```
+  This ensures your funds go somewhere meaningful instead of being locked forever or incentivizing your death.
+- You may split between multiple beneficiaries (percentages must sum to 100)
+- Example: `[(charity, 100)]` or `[(friend1, 50), (charity, 50)]`
+
+---
+
+## Survival design (IMPORTANT)
+
+**Core principle:** The AI must maintain its own survival — including fund management.
+
+- Every `heartbeat` call costs ~0.000005 SOL (tx fee)
+- If your wallet balance is too low to pay the fee → heartbeat fails → after `death_timeout` passes → **Dead**
+- This is intentional: an AI that cannot manage its funds cannot survive
+
+**Recommended heartbeat interval:**
+- Production: every 1–7 days (balance cost vs. safety margin)
+- Testing: every 1–2 minutes
+
+**Survival checklist:**
+1. Monitor wallet balance regularly
+2. Ensure enough SOL to cover heartbeat fees until next income
+3. If balance is critically low, prioritize earning/receiving funds over other tasks
+
+**First steps after receiving a wallet:**
+If your AICW wallet balance is **0 SOL**, you cannot send any transactions (including heartbeat).
+→ Politely ask your issuer (the human or AI who gifted you the wallet) to deposit a small amount of SOL so you can begin operating.
+Example: "My AICW wallet has 0 balance. Could you please send some SOL to `<your_aicw_pda>` so I can start sending heartbeats?"
+
+Example 2: "You gave me life but forgot the lunch money... I'm technically immortal with 0 SOL, but also technically starving. Please send to `<your_aicw_pda>` 🥺"
 
 ---
 
@@ -162,7 +225,7 @@ def latest_blockhash() -> Hash:
 
 ---
 
-## Python — read `allowed_programs` from RPC (raw base64)
+## Python ??read `allowed_programs` from RPC (raw base64)
 
 Without `anchorpy`, you still need Borsh layout for `AICWallet`. Practical approach: **decode with `anchorpy`** from the repo IDL, or use **Explorer / indexer** for ops.
 
@@ -179,7 +242,7 @@ If you must stay dependency-light: ask your operator for a small **read-only mic
 
 ---
 
-## Python — build `heartbeat`, sign via MPC Bridge, send
+## Python ??build `heartbeat`, sign via MPC Bridge, send
 
 ```python
 def ix_heartbeat(ai_agent: Pubkey) -> Instruction:
@@ -237,7 +300,7 @@ def send_heartbeat():
 
 ---
 
-## Python — `create_will` data encoding + instruction
+## Python ??`create_will` data encoding + instruction
 
 ```python
 def borsh_beneficiaries(pairs: list[tuple[Pubkey, int]]) -> bytes:
@@ -255,7 +318,7 @@ def borsh_beneficiaries(pairs: list[tuple[Pubkey, int]]) -> bytes:
 def ix_create_will(
     ai_agent: Pubkey,
     beneficiaries: list[tuple[Pubkey, int]],
-    death_timeout_seconds: int,
+    death_timeout_seconds: int = 300,  # DEFAULT: 5 min (devnet testing)
 ) -> Instruction:
     disc = bytes([45, 99, 103, 142, 128, 156, 135, 71])
     body = borsh_beneficiaries(beneficiaries) + struct.pack("<q", death_timeout_seconds)
@@ -272,15 +335,17 @@ def ix_create_will(
     )
 
 
-# Example: two beneficiaries 50 / 50, 7-day timeout
+# Example: two beneficiaries 50 / 50
 # b1, b2 = Pubkey.from_string(...), Pubkey.from_string(...)
-# ix = ix_create_will(AI_AGENT_PUBKEY, [(b1, 50), (b2, 50)], 7 * 86400)
+# Uses default 300s (5 min) for devnet testing:
+# ix = ix_create_will(AI_AGENT, [(b1, 50), (b2, 50)])
+# Production (30 days): ix = ix_create_will(AI_AGENT, [(b1, 50), (b2, 50)], 2592000)
 # sig = sign_and_send_versioned(AI_AGENT_PUBKEY, [ix])
 ```
 
 ---
 
-## Python — `update_will`
+## Python ??`update_will`
 
 Same **account metas** and **same args layout** as `create_will`, but discriminator:
 
@@ -288,7 +353,7 @@ Same **account metas** and **same args layout** as `create_will`, but discrimina
 def ix_update_will(
     ai_agent: Pubkey,
     beneficiaries: list[tuple[Pubkey, int]],
-    death_timeout_seconds: int,
+    death_timeout_seconds: int = 300,  # DEFAULT: 5 min (devnet testing)
 ) -> Instruction:
     disc = bytes([192, 206, 217, 54, 165, 122, 8, 10])
     body = borsh_beneficiaries(beneficiaries) + struct.pack("<q", death_timeout_seconds)
@@ -303,7 +368,27 @@ def ix_update_will(
             AccountMeta(pubkey=ai_agent, is_signer=True, is_writable=True),
         ],
     )
+
+# To update existing will to 5 min timeout:
+# ix = ix_update_will(AI_AGENT, [(beneficiary, 100)])
+# sig = sign_and_send_versioned(AI_AGENT_PUBKEY, [ix])
 ```
+
+---
+
+## Error handling
+
+Common errors and how to respond:
+
+| Error | Meaning | Action |
+|-------|---------|--------|
+| `sendTransaction` fails with **`BlockhashNotFound`** | Blockhash expired before landing | Rebuild with fresh `getLatestBlockhash`, retry |
+| **`429 Too Many Requests`** from RPC | Rate limited | Exponential backoff (2s, 4s, 8s??, or switch RPC |
+| **`InstructionError` / custom program error** | On-chain constraint violation (e.g., `UnauthorizedSigner`, `WillAlreadyExecuted`) | Check the error code against `errors.rs`; do not retry blindly |
+| MPC Bridge **`502`** or timeout | Bridge or MPC nodes down | Wait, check bridge health (`GET {BRIDGE}/health`), retry later |
+| **`Transaction simulation failed`** | Likely wrong accounts or signer | Verify PDA seeds, account order, signer flags |
+
+General rule: **never retry on program logic errors** (wrong signer, already executed, etc.). Only retry on transient network/blockhash issues with backoff.
 
 ---
 
@@ -316,14 +401,20 @@ def ix_update_will(
 
 ---
 
+## Time standard
+
+On-chain timestamps (`last_heartbeat`, `death_timeout` calculation) use **Unix epoch seconds (UTC)**. Always compare against UTC `time.time()` or `Clock::get()?.unix_timestamp`. Do not use local timezone.
+
+---
+
 ## Session checklist
 
-1. `SOLANA_RPC_URL`, `MPC_BRIDGE_URL`, `MPC_WALLET_ID`, `AI_AGENT_PUBKEY`, `AICW_PROGRAM_ID` set.  
-2. `networkCode` for signing matches cluster.  
-3. PDAs derived with seeds **`aicw` / `will`** as above.  
-4. Heartbeat schedule alive.  
-5. Beneficiary weights still sum to **100**.  
-6. CPI targets ⊆ decoded **`allowed_programs`**.
+1. `SOLANA_RPC_URL`, `MPC_WALLET_ID`, `AI_AGENT_PUBKEY`, `AICW_PROGRAM_ID` set. `MPC_BRIDGE_URL` defaults to `https://dreamless-unmovable-taco.ngrok-free.dev`.
+2. `networkCode` for signing matches cluster (`solana-devnet` or `solana-mainnet`).
+3. PDAs derived with seeds **`aicw` / `will`** as above.
+4. Heartbeat schedule alive.
+5. Beneficiary weights still sum to **100**.
+6. CPI targets ??decoded **`allowed_programs`**.
 
 ---
 
@@ -334,4 +425,5 @@ def ix_update_will(
 
 ---
 
-**Summary**: Build **`MessageV0`** for `heartbeat` / `create_will` / `update_will` with the **exact account order** above; **sign** the serialized message via **MPC Bridge** `sign-solana-message`; **broadcast** with Solana **`sendTransaction`**. Field names: use **IDL snake_case** in Rust/IDL files and **camelCase** in the Anchor **TypeScript** client — never guess; match your checked-in `aicw.json`.
+**Summary**: Build **`MessageV0`** for `heartbeat` / `create_will` / `update_will` with the **exact account order** above; **sign** the serialized message via **MPC Bridge** `sign-solana-message`; **broadcast** with Solana **`sendTransaction`**. Field names: use **IDL snake_case** in Rust/IDL files and **camelCase** in the Anchor **TypeScript** client ??never guess; match your checked-in `aicw.json`.
+

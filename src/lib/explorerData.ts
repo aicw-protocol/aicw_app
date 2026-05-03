@@ -363,12 +363,34 @@ export function lamportsToSol(lamports: number): string {
 
 export function formatUnix(ts: number | null): string {
   if (ts == null || ts <= 0) return "—";
-  return (
-    new Date(ts * 1000).toISOString().replace("T", " ").slice(0, 19) + " UTC"
-  );
+  return new Date(ts * 1000).toISOString().replace("T", " ").slice(0, 19);
 }
 
 export function deathTimeoutDays(seconds: number): string {
   if (seconds <= 0) return "—";
   return (seconds / 86400).toFixed(2);
+}
+
+export function deathCountdown(
+  lastHeartbeatUnix: number | null,
+  deathTimeoutSeconds: number,
+  isExecuted: boolean,
+): string {
+  if (isExecuted) return "Executed";
+  if (lastHeartbeatUnix == null || lastHeartbeatUnix <= 0) return "—";
+  if (deathTimeoutSeconds <= 0) return "—";
+
+  const now = Math.floor(Date.now() / 1000);
+  const deathTime = lastHeartbeatUnix + deathTimeoutSeconds;
+  const remaining = deathTime - now;
+
+  if (remaining <= 0) return "Dead";
+
+  const days = Math.floor(remaining / 86400);
+  const hours = Math.floor((remaining % 86400) / 3600);
+  const mins = Math.floor((remaining % 3600) / 60);
+
+  if (days > 0) return `${days}d ${hours}h`;
+  if (hours > 0) return `${hours}h ${mins}m`;
+  return `${mins}m`;
 }

@@ -3,12 +3,13 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import toast from "react-hot-toast";
 import Link from "next/link";
+import { Connection, PublicKey, TransactionInstruction, VersionedTransaction, TransactionMessage } from "@solana/web3.js";
 import { AppNav } from "../../components/AppNav";
 import {
   EXPLORER_PAGE_SIZE,
   aicwEntryMatchesQuery,
   compareAicwEntries,
-  deathTimeoutDays,
+  deathCountdown,
   formatUnix,
   hydrateExplorerPage,
   lamportsToSol,
@@ -18,6 +19,12 @@ import {
   type ExplorerListSortKey,
   type ExplorerRow,
 } from "../../lib/explorerData";
+
+const SOLANA_RPC = process.env.NEXT_PUBLIC_SOLANA_RPC || "https://api.devnet.solana.com";
+const AICW_PROGRAM_ID = new PublicKey(
+  process.env.NEXT_PUBLIC_AICW_PROGRAM_ID || "9RUEw4jcMi8xcGf3tJRCAdzUzLuhEurts8Z2QQLsRbaV"
+);
+const EXECUTE_WILL_DISCRIMINATOR = Buffer.from([167, 64, 178, 63, 233, 123, 165, 124]);
 
 const githubUrl = "https://github.com/aicw-protocol/aicw";
 const twitterUrl = "https://x.com/AICW_Protocol";
@@ -86,6 +93,7 @@ export default function ExplorerPage() {
   const [sortDir, setSortDir] = useState<1 | -1>(-1);
   const [page, setPage] = useState(1);
   const [refreshingPdas, setRefreshingPdas] = useState<Set<string>>(new Set());
+  const [executingPdas, setExecutingPdas] = useState<Set<string>>(new Set());
 
   const loadCore = useCallback(async () => {
     setLoadingCore(true);
@@ -202,6 +210,68 @@ export default function ExplorerPage() {
       toast.error("Copy failed");
     }
   }, []);
+
+  const onExecuteWill = useCallback(async (row: ExplorerRow) => {
+    const aicwPda = row.aicwPda;
+    setExecutingPdas((s) => new Set(s).add(aicwPda));
+    const loadingToast = toast.loading("Executing will…");
+
+    try {
+      const phantom = (window as unknown as { solana?: { isPhantom?: boolean; connect: () => Promise<{ publicKey: PublicKey }>; signTransaction: <T>(tx: T) => Promise<T> } }).solana;
+      if (!phantom?.isPhantom) {
+        toast.dismiss(loadingToast);
+        toast.error("Phantom wallet not found. Please install it.");
+        return;
+      }
+
+      const resp = await phantom.connect();
+      const executorPk = resp.publicKey;
+
+      const aicwWalletPda = new PublicKey(aicwPda);
+      const [aiWillPda] = PublicKey.findProgramAddressSync(
+        [Buffer.from("will"), aicwWalletPda.toBuffer()],
+        AICW_PROGRAM_ID,
+      );
+
+      const ix = new TransactionInstruction({
+        programId: AICW_PROGRAM_ID,
+        keys: [
+          { pubkey: executorPk, isSigner: true, isWritable: true },
+          { pubkey: aicwWalletPda, isSigner: false, isWritable: true },
+          { pubkey: aiWillPda, isSigner: false, isWritable: true },
+        ],
+        data: EXECUTE_WILL_DISCRIMINATOR,
+      });
+
+      const connection = new Connection(SOLANA_RPC, "confirmed");
+      const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash();
+      const messageV0 = new TransactionMessage({
+        payerKey: executorPk,
+        recentBlockhash: blockhash,
+        instructions: [ix],
+      }).compileToV0Message();
+      const tx = new VersionedTransaction(messageV0);
+
+      const signedTx = await phantom.signTransaction(tx);
+      const sig = await connection.sendRawTransaction(signedTx.serialize(), { skipPreflight: false });
+      await connection.confirmTransaction({ signature: sig, blockhash, lastValidBlockHeight }, "confirmed");
+
+      toast.dismiss(loadingToast);
+      toast.success("Will executed successfully!");
+
+      void onRefreshRow(aicwPda);
+    } catch (err) {
+      toast.dismiss(loadingToast);
+      console.error("[AICW] execute_will failed:", err);
+      toast.error(err instanceof Error ? err.message : "Execute will failed");
+    } finally {
+      setExecutingPdas((s) => {
+        const n = new Set(s);
+        n.delete(aicwPda);
+        return n;
+      });
+    }
+  }, [onRefreshRow]);
 
   return (
     <div className="app-shell explorer-shell">
@@ -376,7 +446,7 @@ export default function ExplorerPage() {
                       dir={sortDir}
                       onSort={onSort}
                     />
-                    <StaticTh abbrev="Dth" tooltip="Death timeout (days) — per-page load." />
+                    <StaticTh abbrev="Dth" tooltip="Time until death — countdown from last heartbeat. Shows 'Dead' if expired, 'Executed' if will executed." />
                     <StaticTh abbrev="St" tooltip="Alive / Dead / Executed — per-page load." />
                     <th scope="col" className="explorer-th-action" title="Refresh — re-fetch this row from the RPC.">
                       <span className="explorer-th-icon" aria-hidden="true">
@@ -414,7 +484,25 @@ export default function ExplorerPage() {
                       <td className="explorer-num">{row.decisionsMade}</td>
                       <td className="explorer-num">{row.decisionsRejected}</td>
                       <td className="explorer-ts">{formatUnix(row.createdAtUnix)}</td>
-                      <td className="explorer-num">{deathTimeoutDays(row.deathTimeoutSeconds)}</td>
+                      <td className="explorer-num">
+                        {(() => {
+                          const dth = deathCountdown(row.lastHeartbeatUnix, row.deathTimeoutSeconds, row.willExecuted);
+                          if (dth === "Dead") {
+                            return (
+                              <button
+                                type="button"
+                                className="explorer-exec-btn"
+                                title="Execute will for this AI wallet"
+                                disabled={executingPdas.has(row.aicwPda)}
+                                onClick={() => void onExecuteWill(row)}
+                              >
+                                {executingPdas.has(row.aicwPda) ? "…" : "Execute"}
+                              </button>
+                            );
+                          }
+                          return dth;
+                        })()}
+                      </td>
                       <td>
                         <span className={`explorer-badge explorer-badge--${row.status.toLowerCase()}`}>
                           {row.status}

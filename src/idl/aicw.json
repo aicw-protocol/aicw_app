@@ -9,6 +9,10 @@
   "instructions": [
     {
       "name": "ai_reject",
+      "docs": [
+        "AI-only: reject a transfer request and log the reasoning on-chain.",
+        "Same liveness requirements as `ai_transfer`."
+      ],
       "discriminator": [
         222,
         233,
@@ -128,6 +132,10 @@
     },
     {
       "name": "ai_transfer",
+      "docs": [
+        "AI-only: transfer SOL from the wallet to a recipient.",
+        "Requires `updated_by_ai = true` and the wallet to be alive (within death_timeout)."
+      ],
       "discriminator": [
         170,
         70,
@@ -247,6 +255,11 @@
     },
     {
       "name": "create_will",
+      "docs": [
+        "AI-only: first activation of the default will.",
+        "Replaces default beneficiaries, sets `updated_by_ai = true`.",
+        "AI may include any pubkey (including the issuer) as a beneficiary; death_timeout >= 30 days."
+      ],
       "discriminator": [
         45,
         99,
@@ -326,6 +339,11 @@
     },
     {
       "name": "execute_will",
+      "docs": [
+        "Permissionless: execute the will after death_timeout has elapsed.",
+        "Distributes (balance − rent-exempt minimum) to beneficiaries by percentage.",
+        "Fails if `updated_by_ai = false` or the AI is still alive."
+      ],
       "discriminator": [
         167,
         64,
@@ -393,6 +411,9 @@
     },
     {
       "name": "heartbeat",
+      "docs": [
+        "AI-only: prove liveness. Resets `last_heartbeat` to current clock timestamp."
+      ],
       "discriminator": [
         202,
         104,
@@ -457,6 +478,10 @@
     },
     {
       "name": "issue_wallet",
+      "docs": [
+        "Issue a new AICW wallet. Called once by a human (issuer).",
+        "Creates both `AICWallet` and a default `AIWill` (issuer 100%, inactive)."
+      ],
       "discriminator": [
         7,
         221,
@@ -541,6 +566,9 @@
     },
     {
       "name": "register_identity",
+      "docs": [
+        "Register an on-chain AI identity (Know Your Agent)."
+      ],
       "discriminator": [
         164,
         118,
@@ -626,6 +654,9 @@
     },
     {
       "name": "update_will",
+      "docs": [
+        "AI-only: update beneficiaries or death_timeout on an already-activated will."
+      ],
       "discriminator": [
         192,
         206,
@@ -894,48 +925,48 @@
     },
     {
       "code": 6008,
-      "name": "IssuerCannotBeBeneficiary",
-      "msg": "Issuer cannot be a beneficiary."
-    },
-    {
-      "code": 6009,
       "name": "HeartbeatStillAlive",
       "msg": "Will cannot execute yet: heartbeat within death timeout window."
     },
     {
-      "code": 6010,
+      "code": 6009,
       "name": "WillAlreadyExecuted",
       "msg": "Will has already been executed."
     },
     {
-      "code": 6011,
+      "code": 6010,
       "name": "WillWalletMismatch",
       "msg": "AIWill wallet field does not match this AICW wallet."
     },
     {
-      "code": 6012,
+      "code": 6011,
       "name": "BeneficiaryAccountMismatch",
       "msg": "Remaining accounts must match beneficiaries in order and be writable."
     },
     {
-      "code": 6013,
+      "code": 6012,
       "name": "InvalidWillParameters",
       "msg": "heartbeat_interval and death_timeout must be positive."
     },
     {
-      "code": 6014,
+      "code": 6013,
       "name": "WillNotActivatedByAI",
       "msg": "AI must activate the will before this operation."
     },
     {
-      "code": 6015,
+      "code": 6014,
       "name": "WalletPastDeathTimeout",
       "msg": "AICW wallet is past its death timeout."
     },
     {
-      "code": 6016,
+      "code": 6015,
       "name": "ArithmeticOverflow",
       "msg": "Arithmetic overflow in counter or lamport balance update."
+    },
+    {
+      "code": 6016,
+      "name": "SelfBeneficiaryNotAllowed",
+      "msg": "Cannot register self (AICW wallet PDA) as a beneficiary."
     }
   ],
   "types": [

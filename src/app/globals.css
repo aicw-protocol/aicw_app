@@ -150,6 +150,90 @@ a {
   max-width: 1280px;
 }
 
+.issue-shell {
+  max-width: 1280px;
+}
+
+.issue-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(220px, 300px);
+  gap: 24px;
+  align-items: stretch;
+  padding-top: 16px;
+}
+
+.issue-layout-main {
+  min-width: 0;
+}
+
+.issue-layout-main > .hero:first-child {
+  margin-top: 0;
+}
+
+.issue-ecosystem {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  height: 100%;
+  padding: 22px 16px 18px;
+  border-radius: 14px;
+  border: 1px solid var(--border);
+  background: var(--panel-2);
+}
+
+.issue-ecosystem-title {
+  margin: 0 0 14px;
+  width: 100%;
+  text-align: center;
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.issue-ecosystem-list {
+  margin: 0;
+  padding-left: 18px;
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--text);
+}
+
+.issue-ecosystem-list li {
+  margin-bottom: 10px;
+}
+
+.issue-ecosystem-list li:last-child {
+  margin-bottom: 0;
+}
+
+.issue-ecosystem-link {
+  color: var(--text);
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.issue-ecosystem-link:hover {
+  color: var(--text);
+  opacity: 0.85;
+}
+
+.issue-ecosystem-desc {
+  color: var(--text);
+  font-weight: 400;
+}
+
+@media (max-width: 900px) {
+  .issue-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .issue-ecosystem {
+    position: static;
+    order: -1;
+  }
+}
+
 .explorer-toolbar {
   display: flex;
   flex-direction: column;
@@ -306,6 +390,27 @@ a {
 
 .explorer-icon-btn .fa-arrows-rotate {
   font-size: 14px;
+}
+
+.explorer-exec-btn {
+  padding: 4px 10px;
+  border: 1px solid var(--success);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--success);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.15s, color 0.15s;
+}
+.explorer-exec-btn:hover:not(:disabled) {
+  background: var(--success);
+  color: #0b0e14;
+}
+.explorer-exec-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 .explorer-sort-btn {
