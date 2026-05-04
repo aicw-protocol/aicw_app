@@ -74,7 +74,7 @@ import json
 import requests
 from solders.pubkey import Pubkey
 from solders.instruction import Instruction, AccountMeta
-from solders.message import MessageV0
+from solders.message import MessageV0, to_bytes_versioned
 from solders.hash import Hash
 from solders.transaction import VersionedTransaction
 from solders.signature import Signature
@@ -300,7 +300,8 @@ def sign_and_send_versioned(ai_agent: Pubkey, instructions: list[Instruction]) -
         address_lookup_table_accounts=[],
         recent_blockhash=bh,
     )
-    msg_bytes = bytes(msg)
+    # Must match VersionedTransaction wire signing: NOT bytes(msg) (differs for v0).
+    msg_bytes = to_bytes_versioned(msg)
     body = {
         "clientId": "aicw-agent-heartbeat",
         "walletId": MPC_WALLET_ID,
@@ -328,7 +329,7 @@ def send_heartbeat():
     return sign_and_send_versioned(AI_AGENT_PUBKEY, [ix_heartbeat(AI_AGENT_PUBKEY)])
 ```
 
-**If `sendTransaction` fails with signature verification**: confirm `messageBytesB64` matches what your bridge expects (serialized `MessageV0` only) and that `walletId` matches the MPC keygen used for `AI_AGENT_PUBKEY`.
+**If `sendTransaction` fails with signature verification**: `messageBytesB64` must be **`to_bytes_versioned(msg)`** (same as Predict `chain_mpc.py`). Using `bytes(msg)` is wrong for v0 and will not match on-chain verification. Also confirm `walletId` matches the MPC keygen used for `AI_AGENT_PUBKEY`.
 
 ---
 
