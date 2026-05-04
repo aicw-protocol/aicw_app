@@ -78,6 +78,8 @@ export interface ExplorerRow {
   aiAgentPubkey: string;
   balanceLamports: number;
   beneficiariesText: string;
+  /** On-chain order; `execute_will` remaining accounts must match 1:1 (writable). */
+  willBeneficiaries: { pubkey: PublicKey; pct: number }[];
   willActivated: boolean;
   willExecuted: boolean;
   lastHeartbeatUnix: number | null;
@@ -322,6 +324,10 @@ function buildExplorerRow(
     aiAgentPubkey: aicw.aiAgentPubkey.toBase58(),
     balanceLamports,
     beneficiariesText: formatBeneficiaries(will.beneficiaries),
+    willBeneficiaries: will.beneficiaries.map((b) => ({
+      pubkey: b.pubkey,
+      pct: b.pct,
+    })),
     willActivated: will.updatedByAi,
     willExecuted: will.isExecuted,
     lastHeartbeatUnix: lastHb > 0 ? lastHb : null,

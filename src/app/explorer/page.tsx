@@ -236,12 +236,24 @@ export default function ExplorerPage() {
         AICW_PROGRAM_ID,
       );
 
+      const beneficiaries = row.willBeneficiaries;
+      if (!beneficiaries.length) {
+        toast.dismiss(loadingToast);
+        toast.error("No beneficiaries on chain for this will; cannot execute.");
+        return;
+      }
+
       const ix = new TransactionInstruction({
         programId: AICW_PROGRAM_ID,
         keys: [
           { pubkey: executorPk, isSigner: true, isWritable: true },
           { pubkey: aicwWalletPda, isSigner: false, isWritable: true },
           { pubkey: aiWillPda, isSigner: false, isWritable: true },
+          ...beneficiaries.map((b) => ({
+            pubkey: b.pubkey,
+            isSigner: false,
+            isWritable: true,
+          })),
         ],
         data: EXECUTE_WILL_DISCRIMINATOR,
       });
