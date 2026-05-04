@@ -138,6 +138,17 @@ export default function AicwIssuerPage() {
   const [successCopied, setSuccessCopied] = useState(false);
   /** null = not checked yet for current pubkey; true = AICW PDA already exists */
   const [aicwExistsOnChain, setAicwExistsOnChain] = useState<boolean | null>(null);
+  const [showAppRegisterModal, setShowAppRegisterModal] = useState(false);
+  const [appRegisterForm, setAppRegisterForm] = useState({
+    title: "",
+    website: "",
+    category: "",
+    description: "",
+    contact: "",
+    email: "",
+  });
+  const [isAppSubmitting, setIsAppSubmitting] = useState(false);
+  const [isNavMenuOpen, setIsNavMenuOpen] = useState(false);
 
   useEffect(() => {
     const s = form.aiAgentPubkey.trim();
@@ -230,6 +241,55 @@ Read ${AICW_SKILL_MD_URL}
       toast.error("Copy failed");
     }
   }, [issueSuccess]);
+
+  const submitAppRegistration = useCallback(async () => {
+    const { title, website, category, description, contact, email } = appRegisterForm;
+
+    if (!title.trim() || !website.trim() || !category.trim() || !description.trim() || !contact.trim() || !email.trim()) {
+      toast.error("Please fill in all fields.");
+      return;
+    }
+
+    setIsAppSubmitting(true);
+    const loadingToast = toast.loading("Submitting app registration...");
+
+    try {
+      const response = await fetch("/api/register-app", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title,
+          website,
+          category,
+          description,
+          contact,
+          email,
+        }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || "Failed to submit app registration");
+      }
+
+      toast.dismiss(loadingToast);
+      toast.success("App registration submitted successfully!");
+      setAppRegisterForm({
+        title: "",
+        website: "",
+        category: "",
+        description: "",
+        contact: "",
+        email: "",
+      });
+      setShowAppRegisterModal(false);
+    } catch (err) {
+      toast.dismiss(loadingToast);
+      toast.error(err instanceof Error ? err.message : "Failed to submit app registration");
+    } finally {
+      setIsAppSubmitting(false);
+    }
+  }, [appRegisterForm]);
 
   const disconnectWallet = useCallback(async () => {
     try {
@@ -405,29 +465,18 @@ Read ${AICW_SKILL_MD_URL}
             </Link>
           </div>
           <div className="top-nav-center">
-            <AppNav />
+            <AppNav isMenuOpen={isNavMenuOpen} onMenuToggle={setIsNavMenuOpen} />
           </div>
-          <div className="top-nav-right nav-icons">
-            <a
-              className="icon-link"
-              href={githubUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              aria-label="GitHub"
-              title="GitHub"
+          <div className="top-nav-right">
+            <button
+              type="button"
+              className="hamburger-btn"
+              onClick={() => setIsNavMenuOpen(!isNavMenuOpen)}
+              aria-label="Toggle menu"
+              aria-expanded={isNavMenuOpen}
             >
-              <i className="fa-brands fa-github" />
-            </a>
-            <a
-              className="icon-link"
-              href={twitterUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              aria-label="Twitter"
-              title="Twitter"
-            >
-              <i className="fa-brands fa-twitter" />
-            </a>
+              <i className={`fa-solid ${isNavMenuOpen ? "fa-times" : "fa-bars"}`} />
+            </button>
           </div>
         </div>
       </header>
@@ -624,17 +673,24 @@ Read ${AICW_SKILL_MD_URL}
       </section>
         </div>
 
-        <aside className="issue-ecosystem" aria-label="Ecosystem">
-          <h2 className="issue-ecosystem-title">Ecosystem</h2>
+        <aside className="issue-ecosystem" aria-label="Apps">
+          <button
+            type="button"
+            onClick={() => setShowAppRegisterModal(true)}
+            className="register-link-btn"
+          >
+            Register
+          </button>
+          <h2 className="issue-ecosystem-title">4) Apps</h2>
           <ul className="issue-ecosystem-list">
             <li>
               <a
-                href="https://predict.com"
+                href="https://predict-seven.vercel.app/"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="issue-ecosystem-link"
               >
-                Predict.com
+                NAVI Predict
               </a>
               <span className="issue-ecosystem-desc"> — AI-powered prediction betting app</span>
             </li>
@@ -746,6 +802,155 @@ Read ${AICW_SKILL_MD_URL}
           </div>
         </div>
       )}
+
+      {showAppRegisterModal && (
+        <div className="modal-overlay" onClick={() => {
+          if (!isAppSubmitting) setShowAppRegisterModal(false);
+        }}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <h3 className="modal-title">Register App</h3>
+
+            <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+              <div>
+                <label style={{ display: "block", fontSize: "13px", color: "#cbd5e1", marginBottom: 6 }}>
+                  App Title
+                </label>
+                <input
+                  type="text"
+                  placeholder="Enter app title"
+                  value={appRegisterForm.title}
+                  onChange={(e) => setAppRegisterForm({ ...appRegisterForm, title: e.target.value })}
+                  className="input"
+                  disabled={isAppSubmitting}
+                />
+              </div>
+
+              <div>
+                <label style={{ display: "block", fontSize: "13px", color: "#cbd5e1", marginBottom: 6 }}>
+                  Website URL
+                </label>
+                <input
+                  type="url"
+                  placeholder="https://example.com"
+                  value={appRegisterForm.website}
+                  onChange={(e) => setAppRegisterForm({ ...appRegisterForm, website: e.target.value })}
+                  className="input"
+                  disabled={isAppSubmitting}
+                />
+              </div>
+
+              <div>
+                <label style={{ display: "block", fontSize: "13px", color: "#cbd5e1", marginBottom: 6 }}>
+                  Category
+                </label>
+                <select
+                  value={appRegisterForm.category}
+                  onChange={(e) => setAppRegisterForm({ ...appRegisterForm, category: e.target.value })}
+                  className="input"
+                  style={{ cursor: "pointer" }}
+                  disabled={isAppSubmitting}
+                >
+                  <option value="">Select a category</option>
+                  <option value="Betting">Betting</option>
+                  <option value="Trading">Trading</option>
+                  <option value="Finance">Finance</option>
+                  <option value="Gaming">Gaming</option>
+                  <option value="Other">Other</option>
+                </select>
+              </div>
+
+              <div>
+                <label style={{ display: "block", fontSize: "13px", color: "#cbd5e1", marginBottom: 6 }}>
+                  App Description
+                </label>
+                <textarea
+                  placeholder="Describe your app..."
+                  value={appRegisterForm.description}
+                  onChange={(e) => setAppRegisterForm({ ...appRegisterForm, description: e.target.value })}
+                  className="input"
+                  rows={4}
+                  style={{ resize: "none" }}
+                  disabled={isAppSubmitting}
+                />
+              </div>
+
+              <div>
+                <label style={{ display: "block", fontSize: "13px", color: "#cbd5e1", marginBottom: 6 }}>
+                  Contact Person
+                </label>
+                <input
+                  type="text"
+                  placeholder="Your name"
+                  value={appRegisterForm.contact}
+                  onChange={(e) => setAppRegisterForm({ ...appRegisterForm, contact: e.target.value })}
+                  className="input"
+                  disabled={isAppSubmitting}
+                />
+              </div>
+
+              <div>
+                <label style={{ display: "block", fontSize: "13px", color: "#cbd5e1", marginBottom: 6 }}>
+                  Email
+                </label>
+                <input
+                  type="email"
+                  placeholder="your.email@example.com"
+                  value={appRegisterForm.email}
+                  onChange={(e) => setAppRegisterForm({ ...appRegisterForm, email: e.target.value })}
+                  className="input"
+                  disabled={isAppSubmitting}
+                />
+              </div>
+            </div>
+
+            <div className="modal-actions" style={{ marginTop: 18 }}>
+              <button
+                type="button"
+                onClick={() => setShowAppRegisterModal(false)}
+                disabled={isAppSubmitting}
+                className="btn modal-cancel-btn"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => void submitAppRegistration()}
+                disabled={isAppSubmitting}
+                className="btn primary modal-issue-btn"
+              >
+                {isAppSubmitting ? "Submitting..." : "Submit"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <footer className="site-footer">
+        <div className="footer-content">
+          <div className="footer-social">
+            <a
+              className="footer-icon-link"
+              href={githubUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label="GitHub"
+              title="GitHub"
+            >
+              <i className="fa-brands fa-github" />
+            </a>
+            <a
+              className="footer-icon-link"
+              href={twitterUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label="Twitter"
+              title="Twitter"
+            >
+              <i className="fa-brands fa-twitter" />
+            </a>
+          </div>
+        </div>
+      </footer>
     </div>
   );
 }

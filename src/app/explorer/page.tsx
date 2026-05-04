@@ -5,6 +5,9 @@ import toast from "react-hot-toast";
 import Link from "next/link";
 import { Connection, PublicKey, TransactionInstruction, VersionedTransaction, TransactionMessage } from "@solana/web3.js";
 import { AppNav } from "../../components/AppNav";
+
+const githubUrl = "https://github.com/aicw-protocol/aicw";
+const twitterUrl = "https://x.com/AICW_Protocol";
 import {
   EXPLORER_PAGE_SIZE,
   aicwEntryMatchesQuery,
@@ -26,9 +29,6 @@ const AICW_PROGRAM_ID = new PublicKey(
 );
 const EXECUTE_WILL_DISCRIMINATOR = Buffer.from([167, 64, 178, 63, 233, 123, 165, 124]);
 
-const githubUrl = "https://github.com/aicw-protocol/aicw";
-const twitterUrl = "https://x.com/AICW_Protocol";
-
 function shortPk(s: string): string {
   if (s.length <= 12) return s;
   return `${s.slice(0, 4)}…${s.slice(-4)}`;
@@ -49,6 +49,7 @@ function SortHeader({
   activeKey,
   dir,
   onSort,
+  className,
 }: {
   abbrev: string;
   tooltip: string;
@@ -56,10 +57,11 @@ function SortHeader({
   activeKey: ExplorerListSortKey;
   dir: 1 | -1;
   onSort: (k: ExplorerListSortKey) => void;
+  className?: string;
 }) {
   const active = activeKey === sortKey;
   return (
-    <th scope="col" className="explorer-th-sort" title={tooltip}>
+    <th scope="col" className={`explorer-th-sort ${className || ""}`} title={tooltip}>
       <button
         type="button"
         className="explorer-sort-btn"
@@ -74,9 +76,9 @@ function SortHeader({
   );
 }
 
-function StaticTh({ abbrev, tooltip }: { abbrev: string; tooltip: string }) {
+function StaticTh({ abbrev, tooltip, className }: { abbrev: string; tooltip: string; className?: string }) {
   return (
-    <th scope="col" className="explorer-th-static" title={tooltip}>
+    <th scope="col" className={`explorer-th-static ${className || ""}`} title={tooltip}>
       {abbrev}
     </th>
   );
@@ -94,6 +96,7 @@ export default function ExplorerPage() {
   const [page, setPage] = useState(1);
   const [refreshingPdas, setRefreshingPdas] = useState<Set<string>>(new Set());
   const [executingPdas, setExecutingPdas] = useState<Set<string>>(new Set());
+  const [isNavMenuOpen, setIsNavMenuOpen] = useState(false);
 
   const loadCore = useCallback(async () => {
     setLoadingCore(true);
@@ -285,29 +288,18 @@ export default function ExplorerPage() {
             </Link>
           </div>
           <div className="top-nav-center">
-            <AppNav />
+            <AppNav isMenuOpen={isNavMenuOpen} onMenuToggle={setIsNavMenuOpen} />
           </div>
-          <div className="top-nav-right nav-icons">
-            <a
-              className="icon-link"
-              href={githubUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              aria-label="GitHub"
-              title="GitHub"
+          <div className="top-nav-right">
+            <button
+              type="button"
+              className="hamburger-btn"
+              onClick={() => setIsNavMenuOpen(!isNavMenuOpen)}
+              aria-label="Toggle menu"
+              aria-expanded={isNavMenuOpen}
             >
-              <i className="fa-brands fa-github" />
-            </a>
-            <a
-              className="icon-link"
-              href={twitterUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              aria-label="Twitter"
-              title="Twitter"
-            >
-              <i className="fa-brands fa-twitter" />
-            </a>
+              <i className={`fa-solid ${isNavMenuOpen ? "fa-times" : "fa-bars"}`} />
+            </button>
           </div>
         </div>
       </header>
@@ -394,10 +386,11 @@ export default function ExplorerPage() {
                     <StaticTh
                       abbrev="Ben"
                       tooltip="Will beneficiaries — loaded with this page only."
+                      className="mobile-hide"
                     />
-                    <StaticTh abbrev="W+" tooltip="Will activated (AIWill) — per-page load." />
-                    <StaticTh abbrev="Wx" tooltip="Will executed — per-page load." />
-                    <StaticTh abbrev="HB" tooltip="Last heartbeat — per-page load." />
+                    <StaticTh abbrev="W+" tooltip="Will activated (AIWill) — per-page load." className="mobile-hide" />
+                    <StaticTh abbrev="Wx" tooltip="Will executed — per-page load." className="mobile-hide" />
+                    <StaticTh abbrev="HB" tooltip="Last heartbeat — per-page load." className="mobile-hide" />
                     <SortHeader
                       abbrev="Iss"
                       tooltip="Issuer — human wallet pubkey that signed issuance."
@@ -405,6 +398,7 @@ export default function ExplorerPage() {
                       activeKey={sortKey}
                       dir={sortDir}
                       onSort={onSort}
+                      className="mobile-hide"
                     />
                     <SortHeader
                       abbrev="Tx#"
@@ -413,6 +407,7 @@ export default function ExplorerPage() {
                       activeKey={sortKey}
                       dir={sortDir}
                       onSort={onSort}
+                      className="mobile-hide"
                     />
                     <SortHeader
                       abbrev="Vol"
@@ -421,6 +416,7 @@ export default function ExplorerPage() {
                       activeKey={sortKey}
                       dir={sortDir}
                       onSort={onSort}
+                      className="mobile-hide"
                     />
                     <SortHeader
                       abbrev="D+"
@@ -429,6 +425,7 @@ export default function ExplorerPage() {
                       activeKey={sortKey}
                       dir={sortDir}
                       onSort={onSort}
+                      className="mobile-hide"
                     />
                     <SortHeader
                       abbrev="D-"
@@ -437,6 +434,7 @@ export default function ExplorerPage() {
                       activeKey={sortKey}
                       dir={sortDir}
                       onSort={onSort}
+                      className="mobile-hide"
                     />
                     <SortHeader
                       abbrev="Crt"
@@ -445,10 +443,11 @@ export default function ExplorerPage() {
                       activeKey={sortKey}
                       dir={sortDir}
                       onSort={onSort}
+                      className="mobile-hide"
                     />
                     <StaticTh abbrev="Dth" tooltip="Time until death — countdown from last heartbeat. Shows 'Dead' if expired, 'Executed' if will executed." />
                     <StaticTh abbrev="St" tooltip="Alive / Dead / Executed — per-page load." />
-                    <th scope="col" className="explorer-th-action" title="Refresh — re-fetch this row from the RPC.">
+                    <th scope="col" className="explorer-th-action mobile-hide" title="Refresh — re-fetch this row from the RPC.">
                       <span className="explorer-th-icon" aria-hidden="true">
                         <i className="fa-solid fa-arrows-rotate" />
                       </span>
@@ -470,20 +469,20 @@ export default function ExplorerPage() {
                         </button>
                       </td>
                       <td className="explorer-num">{lamportsToSol(row.balanceLamports)}</td>
-                      <td className="explorer-benef">{row.beneficiariesText}</td>
-                      <td>{row.willActivated ? "Yes" : "No"}</td>
-                      <td>{row.willExecuted ? "Yes" : "No"}</td>
-                      <td className="explorer-ts">{formatUnix(row.lastHeartbeatUnix)}</td>
-                      <td>
+                      <td className="explorer-benef mobile-hide">{row.beneficiariesText}</td>
+                      <td className="mobile-hide">{row.willActivated ? "Yes" : "No"}</td>
+                      <td className="mobile-hide">{row.willExecuted ? "Yes" : "No"}</td>
+                      <td className="explorer-ts mobile-hide">{formatUnix(row.lastHeartbeatUnix)}</td>
+                      <td className="mobile-hide">
                         <span className="explorer-mono" title={row.issuerPubkey}>
                           {shortPk(row.issuerPubkey)}
                         </span>
                       </td>
-                      <td className="explorer-num">{row.totalTransactions}</td>
-                      <td className="explorer-num">{volumeSol(row.totalVolumeLamports).toFixed(6)}</td>
-                      <td className="explorer-num">{row.decisionsMade}</td>
-                      <td className="explorer-num">{row.decisionsRejected}</td>
-                      <td className="explorer-ts">{formatUnix(row.createdAtUnix)}</td>
+                      <td className="explorer-num mobile-hide">{row.totalTransactions}</td>
+                      <td className="explorer-num mobile-hide">{volumeSol(row.totalVolumeLamports).toFixed(6)}</td>
+                      <td className="explorer-num mobile-hide">{row.decisionsMade}</td>
+                      <td className="explorer-num mobile-hide">{row.decisionsRejected}</td>
+                      <td className="explorer-ts mobile-hide">{formatUnix(row.createdAtUnix)}</td>
                       <td className="explorer-num">
                         {(() => {
                           const dth = deathCountdown(row.lastHeartbeatUnix, row.deathTimeoutSeconds, row.willExecuted);
@@ -508,7 +507,7 @@ export default function ExplorerPage() {
                           {row.status}
                         </span>
                       </td>
-                      <td>
+                      <td className="mobile-hide">
                         <button
                           type="button"
                           className="explorer-icon-btn"
@@ -538,6 +537,33 @@ export default function ExplorerPage() {
           </>
         )}
       </section>
+
+      <footer className="site-footer">
+        <div className="footer-content">
+          <div className="footer-social">
+            <a
+              className="footer-icon-link"
+              href={githubUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label="GitHub"
+              title="GitHub"
+            >
+              <i className="fa-brands fa-github" />
+            </a>
+            <a
+              className="footer-icon-link"
+              href={twitterUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label="Twitter"
+              title="Twitter"
+            >
+              <i className="fa-brands fa-twitter" />
+            </a>
+          </div>
+        </div>
+      </footer>
     </div>
   );
 }
