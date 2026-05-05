@@ -15,6 +15,7 @@ import {
   deathCountdown,
   formatUnix,
   hydrateExplorerPage,
+  formatBeneficiariesTooltip,
   lamportsToSol,
   loadAicwWalletEntriesSorted,
   refreshExplorerRow,
@@ -40,6 +41,11 @@ function volumeSol(volLamportsStr: string): number {
   } catch {
     return 0;
   }
+}
+
+/** Same condition as the Execute button in the Dth column. */
+function rowShowsExecuteButton(row: ExplorerRow): boolean {
+  return deathCountdown(row.lastHeartbeatUnix, row.deathTimeoutSeconds, row.willExecuted) === "Dead";
 }
 
 function SortHeader({
@@ -97,6 +103,7 @@ export default function ExplorerPage() {
   const [refreshingPdas, setRefreshingPdas] = useState<Set<string>>(new Set());
   const [executingPdas, setExecutingPdas] = useState<Set<string>>(new Set());
   const [isNavMenuOpen, setIsNavMenuOpen] = useState(false);
+  const [dthExecuteFirst, setDthExecuteFirst] = useState(false);
 
   const loadCore = useCallback(async () => {
     setLoadingCore(true);
@@ -184,6 +191,22 @@ export default function ExplorerPage() {
       cancelled = true;
     };
   }, [loadingCore, pageSlice]);
+
+  useEffect(() => {
+    setDthExecuteFirst(false);
+  }, [pageClamped, query, sortKey, sortDir]);
+
+  const displayRows = useMemo(() => {
+    if (!dthExecuteFirst) return pageRows;
+    const withIdx = pageRows.map((r, i) => ({ r, i }));
+    withIdx.sort((a, b) => {
+      const ae = rowShowsExecuteButton(a.r) ? 1 : 0;
+      const be = rowShowsExecuteButton(b.r) ? 1 : 0;
+      if (be !== ae) return be - ae;
+      return a.i - b.i;
+    });
+    return withIdx.map((x) => x.r);
+  }, [pageRows, dthExecuteFirst]);
 
   const onRefreshRow = useCallback(async (aicwPda: string) => {
     setRefreshingPdas((s) => new Set(s).add(aicwPda));
@@ -457,8 +480,19 @@ export default function ExplorerPage() {
                       onSort={onSort}
                       className="mobile-hide"
                     />
-                    <StaticTh abbrev="Dth" tooltip="Time until death — countdown from last heartbeat. Shows 'Dead' if expired, 'Executed' if will executed." />
-                    <StaticTh abbrev="St" tooltip="Alive / Dead / Executed — per-page load." />
+                    <th scope="col" className="explorer-th-sort">
+                      <button
+                        type="button"
+                        className="explorer-sort-btn"
+                        title="Click: move rows with Execute (dead, will not executed) to the top of this page. Click again: restore row order."
+                        aria-label="Sort death column by Execute rows first"
+                        onClick={() => setDthExecuteFirst((v) => !v)}
+                      >
+                        Dth
+                        {dthExecuteFirst ? " ▲" : ""}
+                      </button>
+                    </th>
+                    <StaticTh abbrev="St" tooltip="Alive or Dead. Wallets whose will was executed still show Dead here (muted gray)." />
                     <th scope="col" className="explorer-th-action mobile-hide" title="Refresh — re-fetch this row from the RPC.">
                       <span className="explorer-th-icon" aria-hidden="true">
                         <i className="fa-solid fa-arrows-rotate" />
@@ -468,8 +502,15 @@ export default function ExplorerPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {pageRows.map((row) => (
-                    <tr key={row.aicwPda}>
+                  {displayRows.map((row) => (
+                    <tr
+                      key={row.aicwPda}
+                      className={
+                        row.status === "Dead" || row.status === "Executed"
+                          ? "explorer-row--dimmed"
+                          : undefined
+                      }
+                    >
                       <td>
                         <button
                           type="button"
@@ -481,7 +522,12 @@ export default function ExplorerPage() {
                         </button>
                       </td>
                       <td className="explorer-num">{lamportsToSol(row.balanceLamports)}</td>
-                      <td className="explorer-benef mobile-hide">{row.beneficiariesText}</td>
+                      <td
+                        className="explorer-benef mobile-hide"
+                        title={formatBeneficiariesTooltip(row.willBeneficiaries)}
+                      >
+                        {row.beneficiariesText}
+                      </td>
                       <td className="mobile-hide">{row.willActivated ? "Yes" : "No"}</td>
                       <td className="mobile-hide">{row.willExecuted ? "Yes" : "No"}</td>
                       <td className="explorer-ts mobile-hide">{formatUnix(row.lastHeartbeatUnix)}</td>
@@ -498,7 +544,7 @@ export default function ExplorerPage() {
                       <td className="explorer-num">
                         {(() => {
                           const dth = deathCountdown(row.lastHeartbeatUnix, row.deathTimeoutSeconds, row.willExecuted);
-                          if (dth === "Dead") {
+                          if (dth === "Dead" && (row.willActivated || row.status !== "Dead")) {
                             return (
                               <button
                                 type="button"
@@ -515,17 +561,29 @@ export default function ExplorerPage() {
                         })()}
                       </td>
                       <td>
-                        <span className={`explorer-badge explorer-badge--${row.status.toLowerCase()}`}>
-                          {row.status}
-                        </span>
+                        {row.willExecuted ? (
+                          <span className="explorer-badge explorer-badge--dead-executed">Dead</span>
+                        ) : (
+                          <span className={`explorer-badge explorer-badge--${row.status.toLowerCase()}`}>
+                            {row.status}
+                          </span>
+                        )}
                       </td>
                       <td className="mobile-hide">
                         <button
                           type="button"
                           className="explorer-icon-btn"
-                          title="Re-fetch this row from the RPC"
+                          title={
+                            row.willExecuted
+                              ? "Will executed — refresh not available"
+                              : row.status === "Dead"
+                                ? "Status Dead — refresh not available"
+                                : "Re-fetch this row from the RPC"
+                          }
                           aria-label="Refresh row"
-                          disabled={refreshingPdas.has(row.aicwPda)}
+                          disabled={
+                            row.willExecuted || row.status === "Dead" || refreshingPdas.has(row.aicwPda)
+                          }
                           onClick={() => void onRefreshRow(row.aicwPda)}
                         >
                           <i

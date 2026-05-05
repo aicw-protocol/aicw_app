@@ -418,9 +418,9 @@ a {
   width: 30px;
   height: 30px;
   padding: 0;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  background: var(--panel-2);
+  border: none;
+  border-radius: 0;
+  background: none;
   color: #94a3b8;
   cursor: pointer;
   line-height: 1;
@@ -428,7 +428,6 @@ a {
 
 .explorer-icon-btn:hover:not(:disabled) {
   color: var(--accent);
-  border-color: rgba(124, 140, 255, 0.45);
 }
 
 .explorer-icon-btn:disabled {
@@ -528,22 +527,51 @@ a {
   letter-spacing: 0.02em;
 }
 
+/* Text color only — no pill background / border / radius */
 .explorer-badge--alive {
-  background: rgba(34, 197, 94, 0.15);
+  background: none;
   color: var(--success);
-  border: 1px solid rgba(34, 197, 94, 0.35);
+  border: none;
+  border-radius: 0;
+  padding: 0;
 }
 
 .explorer-badge--dead {
-  background: rgba(248, 113, 113, 0.12);
+  background: none;
   color: #f87171;
-  border: 1px solid rgba(248, 113, 113, 0.35);
+  border: none;
+  border-radius: 0;
+  padding: 0;
+}
+
+/* Will executed: St column shows "Dead" in muted gray (not "Executed") */
+.explorer-badge--dead-executed {
+  display: inline-block;
+  background: none;
+  border: none;
+  border-radius: 0;
+  padding: 0;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: #6a6a6a;
 }
 
 .explorer-badge--executed {
   background: rgba(156, 163, 175, 0.12);
   color: var(--muted);
   border: 1px solid var(--border);
+}
+
+/* Dead / Executed wallet row: mute table copy; keep action button + status badge readable */
+.explorer-table tr.explorer-row--dimmed > td {
+  color: #6a6a6a;
+}
+.explorer-table tr.explorer-row--dimmed > td .explorer-exec-btn {
+  color: var(--success);
+}
+.explorer-table tr.explorer-row--dimmed > td .explorer-badge--dead {
+  color: #f87171;
 }
 
 .icon-link {

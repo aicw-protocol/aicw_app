@@ -65,7 +65,7 @@ async function lamportsByPubkeyBatched(
       const info = infos[idx];
       out.set(pk.toBase58(), info?.lamports ?? 0);
     });
-    if (i + chunkSize < pubkeys.length) await sleep(120);
+    if (i + chunkSize < pubkeys.length) await sleep(450);
   }
   return out;
 }
@@ -112,6 +112,14 @@ function formatBeneficiaries(
         `${b.pubkey.toBase58().slice(0, 4)}…${b.pubkey.toBase58().slice(-4)} ${b.pct}%`,
     )
     .join(", ");
+}
+
+/** Full base58 + % for native `title` tooltip (one line per beneficiary). */
+export function formatBeneficiariesTooltip(
+  list: { pubkey: PublicKey; pct: number }[],
+): string {
+  if (!list?.length) return "No beneficiaries on-chain.";
+  return list.map((b) => `${b.pubkey.toBase58()} — ${b.pct}%`).join("\n");
 }
 
 export function computeWillStatus(
@@ -243,7 +251,7 @@ export async function hydrateExplorerPage(entries: AicwWalletEntry[]): Promise<E
 
   type Loaded = { publicKey: PublicKey; account: unknown; will: unknown };
   const loaded: Loaded[] = [];
-  const willConcurrency = 5;
+  const willConcurrency = 3;
   for (let i = 0; i < entries.length; i += willConcurrency) {
     const slice = entries.slice(i, i + willConcurrency);
     const chunk = await Promise.all(
@@ -260,7 +268,7 @@ export async function hydrateExplorerPage(entries: AicwWalletEntry[]): Promise<E
     for (const x of chunk) {
       if (x) loaded.push(x);
     }
-    if (i + willConcurrency < entries.length) await sleep(40);
+    if (i + willConcurrency < entries.length) await sleep(220);
   }
 
   const byPk = new Map<string, Loaded>();
