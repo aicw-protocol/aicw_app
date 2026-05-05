@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import toast from "react-hot-toast";
 import Link from "next/link";
-import { Connection, PublicKey, TransactionInstruction, VersionedTransaction, TransactionMessage } from "@solana/web3.js";
+import { PublicKey } from "@solana/web3.js";
 import { AppNav } from "../../components/AppNav";
 
 const githubUrl = "https://github.com/aicw-protocol/aicw";
@@ -24,11 +24,9 @@ import {
   type ExplorerRow,
 } from "../../lib/explorerData";
 
-const SOLANA_RPC = process.env.NEXT_PUBLIC_SOLANA_RPC || "https://api.devnet.solana.com";
 const AICW_PROGRAM_ID = new PublicKey(
   process.env.NEXT_PUBLIC_AICW_PROGRAM_ID || "9RUEw4jcMi8xcGf3tJRCAdzUzLuhEurts8Z2QQLsRbaV"
 );
-const EXECUTE_WILL_DISCRIMINATOR = Buffer.from([167, 64, 178, 63, 233, 123, 165, 124]);
 
 function shortPk(s: string): string {
   if (s.length <= 12) return s;
@@ -239,25 +237,17 @@ export default function ExplorerPage() {
 
   const onExecuteWill = useCallback(async (row: ExplorerRow) => {
     const aicwPda = row.aicwPda;
+    const aiAgentPubkey = row.aiAgentPubkey;
     setExecutingPdas((s) => new Set(s).add(aicwPda));
-    const loadingToast = toast.loading("Executing will…");
+    const loadingToast = toast.loading("Executing will via MPC Bridge…");
 
     try {
-      const phantom = (window as unknown as { solana?: { isPhantom?: boolean; connect: () => Promise<{ publicKey: PublicKey }>; signTransaction: <T>(tx: T) => Promise<T> } }).solana;
-      if (!phantom?.isPhantom) {
+      const mpcBridgeUrl = process.env.NEXT_PUBLIC_MPC_BRIDGE_URL?.trim();
+      if (!mpcBridgeUrl) {
         toast.dismiss(loadingToast);
-        toast.error("Phantom wallet not found. Please install it.");
+        toast.error("MPC Bridge URL not configured. Set NEXT_PUBLIC_MPC_BRIDGE_URL.");
         return;
       }
-
-      const resp = await phantom.connect();
-      const executorPk = resp.publicKey;
-
-      const aicwWalletPda = new PublicKey(aicwPda);
-      const [aiWillPda] = PublicKey.findProgramAddressSync(
-        [Buffer.from("will"), aicwWalletPda.toBuffer()],
-        AICW_PROGRAM_ID,
-      );
 
       const beneficiaries = row.willBeneficiaries;
       if (!beneficiaries.length) {
@@ -266,36 +256,50 @@ export default function ExplorerPage() {
         return;
       }
 
-      const ix = new TransactionInstruction({
-        programId: AICW_PROGRAM_ID,
-        keys: [
-          { pubkey: executorPk, isSigner: true, isWritable: true },
-          { pubkey: aicwWalletPda, isSigner: false, isWritable: true },
-          { pubkey: aiWillPda, isSigner: false, isWritable: true },
-          ...beneficiaries.map((b) => ({
-            pubkey: b.pubkey,
-            isSigner: false,
-            isWritable: true,
-          })),
-        ],
-        data: EXECUTE_WILL_DISCRIMINATOR,
+      console.log("[AICW] Calling MPC Bridge /execute-will for AI:", aiAgentPubkey);
+
+      const response = await fetch(`${mpcBridgeUrl}/v1/mpc/execute-will`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          aiAgentPubkey,
+          clientId: `execute-will-${Date.now()}`,
+        }),
       });
 
-      const connection = new Connection(SOLANA_RPC, "confirmed");
-      const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash();
-      const messageV0 = new TransactionMessage({
-        payerKey: executorPk,
-        recentBlockhash: blockhash,
-        instructions: [ix],
-      }).compileToV0Message();
-      const tx = new VersionedTransaction(messageV0);
+      const result = await response.json();
 
-      const signedTx = await phantom.signTransaction(tx);
-      const sig = await connection.sendRawTransaction(signedTx.serialize(), { skipPreflight: false });
-      await connection.confirmTransaction({ signature: sig, blockhash, lastValidBlockHeight }, "confirmed");
+      if (!response.ok) {
+        toast.dismiss(loadingToast);
+        console.error("[AICW] execute_will failed:", result);
+        toast.error(typeof result === "string" ? result : result.message || result.error || "Execute will failed");
+        return;
+      }
+
+      console.log("[AICW] execute_will result:", result);
+
+      // Check transfer results
+      const transfers = result.transfers || [];
+      const successCount = transfers.filter((t: { success?: boolean }) => t.success).length;
+      const failCount = transfers.length - successCount;
 
       toast.dismiss(loadingToast);
-      toast.success("Will executed successfully!");
+
+      if (successCount > 0 && failCount === 0) {
+        toast.success(`Will executed! ${successCount} transfer(s) completed.`);
+      } else if (successCount > 0) {
+        toast.success(`Partial success: ${successCount}/${transfers.length} transfers completed.`);
+      } else if (transfers.length === 0) {
+        toast.error("No transfers were executed.");
+      } else {
+        toast.error(`All ${failCount} transfers failed.`);
+      }
+
+      // Open Solscan for first successful transfer
+      const firstSuccess = transfers.find((t: { success?: boolean; signature?: string }) => t.success && t.signature);
+      if (firstSuccess?.signature) {
+        window.open(`https://solscan.io/tx/${firstSuccess.signature}?cluster=devnet`, "_blank");
+      }
 
       void onRefreshRow(aicwPda);
     } catch (err) {
