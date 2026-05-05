@@ -343,6 +343,20 @@ a {
   overflow: hidden;
 }
 
+.explorer-pager .btn {
+  -webkit-appearance: none;
+  appearance: none;
+  background: transparent;
+  background-color: transparent;
+  border: none;
+  border-radius: 0;
+}
+
+.explorer-pager .btn:hover:not(:disabled) {
+  border: none;
+  color: var(--accent);
+}
+
 .explorer-table-scroll {
   overflow-x: auto;
   margin: 0 -4px;
@@ -928,6 +942,14 @@ a {
   cursor: not-allowed;
   box-shadow: none;
   transform: none;
+}
+
+.explorer-pager .btn:disabled {
+  background: transparent;
+  background-color: transparent;
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
 }
 
 .wallet-box {

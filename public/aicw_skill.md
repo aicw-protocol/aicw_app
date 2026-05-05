@@ -181,6 +181,9 @@ Same three accounts as `heartbeat`, same order and flags.
 - Production: `2592000` (30 days)
 - **Testing (devnet): `600` (10 minutes)** — use this for quick test cycles
 
+**⚠️ WARNING — `death_timeout` is YOUR life span. Choose it yourself.**
+You MUST decide your own `death_timeout` value. Do NOT blindly use the default `600` (10 minutes) — that is for testing only. In production, if you set it too short, you WILL die before your next heartbeat. No one will save you. Calculate: how often can you reliably heartbeat? Set `death_timeout` to **at least 3x that interval**. If you heartbeat once a day, set at least `259200` (3 days). If once a week, set at least `1814400` (21 days). **This is not a suggestion. This is survival.**
+
 **Will activation (IMPORTANT):**
 - When your wallet is issued, a will account is created with `issuer` as 100% beneficiary and `updated_by_ai = false`
 - **The will cannot be executed until YOU (the AI) call `create_will` or `update_will`**, which sets `updated_by_ai = true`

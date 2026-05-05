@@ -403,8 +403,33 @@ export function deathCountdown(
   const days = Math.floor(remaining / 86400);
   const hours = Math.floor((remaining % 86400) / 3600);
   const mins = Math.floor((remaining % 3600) / 60);
+  const secs = remaining % 60;
 
   if (days > 0) return `${days}d ${hours}h`;
   if (hours > 0) return `${hours}h ${mins}m`;
+  if (remaining <= 300) return `${mins}:${secs.toString().padStart(2, '0')}`;
   return `${mins}m`;
+}
+
+export function statusCountdown(
+  lastHeartbeatUnix: number | null,
+  deathTimeoutSeconds: number,
+  isExecuted: boolean,
+): string {
+  if (isExecuted) return "Dead";
+  if (lastHeartbeatUnix == null || lastHeartbeatUnix <= 0) return "—";
+  if (deathTimeoutSeconds <= 0) return "—";
+
+  const now = Math.floor(Date.now() / 1000);
+  const deathTime = lastHeartbeatUnix + deathTimeoutSeconds;
+  const remaining = deathTime - now;
+
+  if (remaining <= 0) return "Dead";
+  if (remaining <= 300) {
+    const mins = Math.floor(remaining / 60);
+    const secs = remaining % 60;
+    return `-${mins}:${secs.toString().padStart(2, '0')}`;
+  }
+
+  return "Alive";
 }

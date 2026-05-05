@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import toast from "react-hot-toast";
 import Link from "next/link";
-import { PublicKey } from "@solana/web3.js";
+import { Connection, PublicKey, TransactionInstruction, TransactionMessage, VersionedTransaction } from "@solana/web3.js";
 import { AppNav } from "../../components/AppNav";
 
 const githubUrl = "https://github.com/aicw-protocol/aicw";
@@ -24,9 +24,11 @@ import {
   type ExplorerRow,
 } from "../../lib/explorerData";
 
+const SOLANA_RPC = process.env.NEXT_PUBLIC_SOLANA_RPC || "https://api.devnet.solana.com";
 const AICW_PROGRAM_ID = new PublicKey(
   process.env.NEXT_PUBLIC_AICW_PROGRAM_ID || "9RUEw4jcMi8xcGf3tJRCAdzUzLuhEurts8Z2QQLsRbaV"
 );
+const EXECUTE_WILL_DISCRIMINATOR = Buffer.from([167, 64, 178, 63, 233, 123, 165, 124]);
 
 function shortPk(s: string): string {
   if (s.length <= 12) return s;
@@ -194,6 +196,13 @@ export default function ExplorerPage() {
     setDthExecuteFirst(false);
   }, [pageClamped, query, sortKey, sortDir]);
 
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setPageRows((prev) => [...prev]);
+    }, 1000);
+    return () => clearInterval(interval);
+  }, []);
+
   const displayRows = useMemo(() => {
     if (!dthExecuteFirst) return pageRows;
     const withIdx = pageRows.map((r, i) => ({ r, i }));
@@ -283,16 +292,66 @@ export default function ExplorerPage() {
       const successCount = transfers.filter((t: { success?: boolean }) => t.success).length;
       const failCount = transfers.length - successCount;
 
+      if (successCount === 0) {
+        toast.dismiss(loadingToast);
+        if (transfers.length === 0) {
+          toast.error("No transfers were executed.");
+        } else {
+          toast.error(`All ${failCount} transfers failed.`);
+        }
+        return;
+      }
+
+      // Mark will as executed on-chain via Phantom signature
+      try {
+        const phantom = (window as unknown as { solana?: { isPhantom?: boolean; connect: () => Promise<{ publicKey: PublicKey }>; signTransaction: <T>(tx: T) => Promise<T> } }).solana;
+        if (phantom?.isPhantom) {
+          const resp = await phantom.connect();
+          const executorPk = resp.publicKey;
+          const aicwWalletPda = new PublicKey(aicwPda);
+          const [aiWillPda] = PublicKey.findProgramAddressSync(
+            [Buffer.from("will"), aicwWalletPda.toBuffer()],
+            AICW_PROGRAM_ID,
+          );
+
+          const ix = new TransactionInstruction({
+            programId: AICW_PROGRAM_ID,
+            keys: [
+              { pubkey: executorPk, isSigner: true, isWritable: true },
+              { pubkey: aicwWalletPda, isSigner: false, isWritable: true },
+              { pubkey: aiWillPda, isSigner: false, isWritable: true },
+              ...beneficiaries.map((b) => ({
+                pubkey: b.pubkey,
+                isSigner: false,
+                isWritable: true,
+              })),
+            ],
+            data: EXECUTE_WILL_DISCRIMINATOR,
+          });
+
+          const connection = new Connection(SOLANA_RPC, "confirmed");
+          const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash();
+          const messageV0 = new TransactionMessage({
+            payerKey: executorPk,
+            recentBlockhash: blockhash,
+            instructions: [ix],
+          }).compileToV0Message();
+          const tx = new VersionedTransaction(messageV0);
+          const signedTx = await phantom.signTransaction(tx);
+          const sig = await connection.sendRawTransaction(signedTx.serialize(), { skipPreflight: false });
+          await connection.confirmTransaction({ signature: sig, blockhash, lastValidBlockHeight }, "confirmed");
+          console.log("[AICW] on-chain execute_will marked:", sig);
+        }
+      } catch (e) {
+        console.warn("[AICW] Failed to mark will as executed on-chain (non-critical):", e);
+      }
+
       toast.dismiss(loadingToast);
 
-      if (successCount > 0 && failCount === 0) {
+      if (failCount === 0) {
         toast.success(`Will executed! ${successCount} transfer(s) completed.`);
-      } else if (successCount > 0) {
-        toast.success(`Partial success: ${successCount}/${transfers.length} transfers completed.`);
-      } else if (transfers.length === 0) {
-        toast.error("No transfers were executed.");
       } else {
-        toast.error(`All ${failCount} transfers failed.`);
+        toast.success(`Partial success: ${successCount}/${transfers.length} transfers completed.`);
       }
 
       // Open Solscan for first successful transfer
@@ -565,13 +624,23 @@ export default function ExplorerPage() {
                         })()}
                       </td>
                       <td>
-                        {row.willExecuted ? (
-                          <span className="explorer-badge explorer-badge--dead-executed">Dead</span>
-                        ) : (
-                          <span className={`explorer-badge explorer-badge--${row.status.toLowerCase()}`}>
-                            {row.status}
-                          </span>
-                        )}
+                        {(() => {
+                          const dth = deathCountdown(row.lastHeartbeatUnix, row.deathTimeoutSeconds, row.willExecuted);
+                          if (row.willExecuted) {
+                            return <span className="explorer-badge explorer-badge--dead-executed">Dead</span>;
+                          }
+                          if (dth === "Dead") {
+                            if (!row.willActivated) {
+                              return <span className="explorer-badge explorer-badge--dead-executed">Dead</span>;
+                            }
+                            return <span className="explorer-badge explorer-badge--dead">Dead</span>;
+                          }
+                          return (
+                            <span className={`explorer-badge explorer-badge--${row.status.toLowerCase()}`}>
+                              {row.status}
+                            </span>
+                          );
+                        })()}
                       </td>
                       <td className="mobile-hide">
                         <button
