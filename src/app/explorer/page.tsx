@@ -14,8 +14,11 @@ import {
   compareAicwEntries,
   deathCountdown,
   formatUnix,
+  formatUnixShort,
+  formatNumberShort,
   hydrateExplorerPage,
   formatBeneficiariesTooltip,
+  formatBeneficiariesShort,
   lamportsToSol,
   loadAicwWalletEntriesSorted,
   refreshExplorerRow,
@@ -589,21 +592,45 @@ export default function ExplorerPage() {
                         className="explorer-benef mobile-hide"
                         title={formatBeneficiariesTooltip(row.willBeneficiaries)}
                       >
-                        {row.beneficiariesText}
+                        <span className="explorer-benef-full">{row.beneficiariesText}</span>
+                        <span className="explorer-benef-short">{formatBeneficiariesShort(row.willBeneficiaries)}</span>
                       </td>
-                      <td className="mobile-hide">{row.willActivated ? "Yes" : "No"}</td>
-                      <td className="mobile-hide">{row.willExecuted ? "Yes" : "No"}</td>
-                      <td className="explorer-ts mobile-hide">{formatUnix(row.lastHeartbeatUnix)}</td>
+                      <td className="mobile-hide explorer-yes-no">
+                        <span className="explorer-yes-no-full">{row.willActivated ? "Yes" : "No"}</span>
+                        <span className="explorer-yes-no-short">{row.willActivated ? "Y" : "N"}</span>
+                      </td>
+                      <td className="mobile-hide explorer-yes-no">
+                        <span className="explorer-yes-no-full">{row.willExecuted ? "Yes" : "No"}</span>
+                        <span className="explorer-yes-no-short">{row.willExecuted ? "Y" : "N"}</span>
+                      </td>
+                      <td className="explorer-ts mobile-hide" title={formatUnix(row.lastHeartbeatUnix) || ""}>
+                        <span className="explorer-date-full">{formatUnix(row.lastHeartbeatUnix)}</span>
+                        <span className="explorer-date-short">{formatUnixShort(row.lastHeartbeatUnix)}</span>
+                      </td>
                       <td className="mobile-hide">
                         <span className="explorer-mono" title={row.issuerPubkey}>
                           {shortPk(row.issuerPubkey)}
                         </span>
                       </td>
-                      <td className="explorer-num mobile-hide">{row.totalTransactions}</td>
-                      <td className="explorer-num mobile-hide">{volumeSol(row.totalVolumeLamports).toFixed(6)}</td>
-                      <td className="explorer-num mobile-hide">{row.decisionsMade}</td>
-                      <td className="explorer-num mobile-hide">{row.decisionsRejected}</td>
-                      <td className="explorer-ts mobile-hide">{formatUnix(row.createdAtUnix)}</td>
+                      <td className="explorer-num mobile-hide" title={row.totalTransactions}>
+                        <span className="explorer-num-full">{row.totalTransactions}</span>
+                        <span className="explorer-num-short">{formatNumberShort(row.totalTransactions)}</span>
+                      </td>
+                      <td className="explorer-num mobile-hide" title={volumeSol(row.totalVolumeLamports).toFixed(3)}>
+                        {volumeSol(row.totalVolumeLamports).toFixed(3)}
+                      </td>
+                      <td className="explorer-num mobile-hide" title={row.decisionsMade}>
+                        <span className="explorer-num-full">{row.decisionsMade}</span>
+                        <span className="explorer-num-short">{formatNumberShort(row.decisionsMade)}</span>
+                      </td>
+                      <td className="explorer-num mobile-hide" title={row.decisionsRejected}>
+                        <span className="explorer-num-full">{row.decisionsRejected}</span>
+                        <span className="explorer-num-short">{formatNumberShort(row.decisionsRejected)}</span>
+                      </td>
+                      <td className="explorer-ts mobile-hide" title={formatUnix(row.createdAtUnix) || ""}>
+                        <span className="explorer-date-full">{formatUnix(row.createdAtUnix)}</span>
+                        <span className="explorer-date-short">{formatUnixShort(row.createdAtUnix)}</span>
+                      </td>
                       <td className="explorer-num">
                         {(() => {
                           const dth = deathCountdown(row.lastHeartbeatUnix, row.deathTimeoutSeconds, row.willExecuted);

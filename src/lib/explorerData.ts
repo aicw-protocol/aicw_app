@@ -114,6 +114,16 @@ function formatBeneficiaries(
     .join(", ");
 }
 
+export function formatBeneficiariesShort(
+  list: { pubkey: PublicKey; pct: number }[],
+): string {
+  if (!list?.length) return "—";
+  if (list.length === 1) {
+    return `1 (${list[0].pct}%)`;
+  }
+  return `${list.length}`;
+}
+
 /** Full base58 + % for native `title` tooltip (one line per beneficiary). */
 export function formatBeneficiariesTooltip(
   list: { pubkey: PublicKey; pct: number }[],
@@ -372,12 +382,34 @@ export async function refreshExplorerRow(
 }
 
 export function lamportsToSol(lamports: number): string {
-  return (lamports / 1e9).toFixed(6);
+  return (lamports / 1e9).toFixed(3);
 }
 
 export function formatUnix(ts: number | null): string {
   if (ts == null || ts <= 0) return "—";
   return new Date(ts * 1000).toISOString().replace("T", " ").slice(0, 19);
+}
+
+export function formatUnixShort(ts: number | null): string {
+  if (ts == null || ts <= 0) return "—";
+  const date = new Date(ts * 1000);
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  const hour = String(date.getHours()).padStart(2, '0');
+  const min = String(date.getMinutes()).padStart(2, '0');
+  return `${month}/${day} ${hour}:${min}`;
+}
+
+export function formatNumberShort(numStr: string): string {
+  const num = Number(numStr);
+  if (isNaN(num)) return numStr;
+  if (num >= 1000000) {
+    return `${(num / 1000000).toFixed(1)}M`;
+  }
+  if (num >= 1000) {
+    return `${(num / 1000).toFixed(1)}K`;
+  }
+  return numStr;
 }
 
 export function deathTimeoutDays(seconds: number): string {

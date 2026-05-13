@@ -962,11 +962,6 @@
       "code": 6015,
       "name": "ArithmeticOverflow",
       "msg": "Arithmetic overflow in counter or lamport balance update."
-    },
-    {
-      "code": 6016,
-      "name": "SelfBeneficiaryNotAllowed",
-      "msg": "Cannot register self (AICW wallet PDA) as a beneficiary."
     }
   ],
   "types": [

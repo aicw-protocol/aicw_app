@@ -1,8 +1,8 @@
 import "./globals.css";
 import "@fontsource-variable/mona-sans/index.css";
 import "@fortawesome/fontawesome-free/css/all.min.css";
-import { Toaster } from "react-hot-toast";
 import type { Metadata } from "next";
+import { ClientProviders } from "./ClientProviders";
 
 export const metadata: Metadata = {
   title: "AICW Issue Wallet",
@@ -17,29 +17,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body>
-        {children}
-        <Toaster
-          position="top-right"
-          toastOptions={{
-            style: {
-              background: "#000000",
-              color: "#d1d5db",
-              border: "1px solid #374151",
-            },
-            success: {
-              iconTheme: {
-                primary: "rgba(229, 231, 235, 0.58)",
-                secondary: "#111827",
-              },
-            },
-            error: {
-              iconTheme: {
-                primary: "#f87171",
-                secondary: "#111827",
-              },
-            },
-          }}
-        />
+        <ClientProviders>{children}</ClientProviders>
       </body>
     </html>
   );

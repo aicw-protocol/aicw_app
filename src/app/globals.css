@@ -375,6 +375,10 @@ a {
   padding: 10px 8px;
   text-align: left;
   vertical-align: top;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 200px;
 }
 
 .explorer-th-sort {
@@ -499,6 +503,10 @@ a {
   margin: -2px 0;
   border-radius: 4px;
   max-width: 100%;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: block;
 }
 
 .explorer-pk-copy:hover {
@@ -523,13 +531,101 @@ a {
 
 .explorer-benef {
   max-width: 220px;
-  word-break: break-word;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.explorer-benef-full {
+  display: inline;
+}
+
+.explorer-benef-short {
+  display: none;
+}
+
+@media (max-width: 1200px) {
+  .explorer-benef {
+    max-width: 60px;
+  }
+  
+  .explorer-benef-full {
+    display: none;
+  }
+  
+  .explorer-benef-short {
+    display: inline;
+  }
 }
 
 .explorer-ts {
   white-space: nowrap;
   font-size: 11px;
   color: var(--muted);
+}
+
+.explorer-date-full {
+  display: inline;
+}
+
+.explorer-date-short {
+  display: none;
+}
+
+.explorer-yes-no-full {
+  display: inline;
+}
+
+.explorer-yes-no-short {
+  display: none;
+}
+
+.explorer-num-full {
+  display: inline;
+}
+
+.explorer-num-short {
+  display: none;
+}
+
+@media (max-width: 1200px) {
+  .explorer-date-full {
+    display: none;
+  }
+  
+  .explorer-date-short {
+    display: inline;
+  }
+  
+  .explorer-yes-no-full {
+    display: none;
+  }
+  
+  .explorer-yes-no-short {
+    display: inline;
+  }
+  
+  .explorer-num-full {
+    display: none;
+  }
+  
+  .explorer-num-short {
+    display: inline;
+  }
+  
+  .explorer-table th,
+  .explorer-table td {
+    max-width: 120px;
+    padding: 8px 6px;
+  }
+  
+  .explorer-ts {
+    max-width: 90px;
+  }
+  
+  .explorer-yes-no {
+    max-width: 40px;
+  }
 }
 
 .explorer-badge {
@@ -1230,10 +1326,17 @@ a {
     justify-self: end;
     display: flex;
     align-items: center;
+    gap: 8px;
   }
 
   .top-nav-right .hamburger-btn {
     display: block;
+  }
+
+  .top-nav-right .wallet-adapter-button-trigger {
+    height: 32px !important;
+    padding: 0 12px !important;
+    font-size: 12px !important;
   }
 
   .nav-menu {
@@ -1324,6 +1427,8 @@ a {
   .explorer-table td {
     padding: 8px 6px;
     white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 
   .explorer-table .mobile-hide {
@@ -1397,4 +1502,42 @@ a {
     height: 28px;
     font-size: 18px;
   }
+}
+
+/* Solana Wallet Adapter overrides */
+.wallet-adapter-button-trigger {
+  font-family: inherit !important;
+  height: 38px !important;
+  padding: 0 18px !important;
+  font-size: 13px !important;
+  border-radius: 8px !important;
+  background-color: rgba(56, 189, 248, 0.12) !important;
+  border: 1px solid rgba(56, 189, 248, 0.3) !important;
+  color: #7dd3fc !important;
+  transition: background-color 0.15s, border-color 0.15s !important;
+}
+
+.wallet-adapter-button-trigger:hover {
+  background-color: rgba(56, 189, 248, 0.2) !important;
+  border-color: rgba(56, 189, 248, 0.5) !important;
+}
+
+.wallet-adapter-modal {
+  z-index: 9999 !important;
+}
+
+.wallet-adapter-modal-container {
+  position: relative !important;
+  z-index: 1 !important;
+  backdrop-filter: blur(4px) !important;
+}
+
+.wallet-adapter-modal-wrapper {
+  font-family: inherit !important;
+  position: relative !important;
+  z-index: 2 !important;
+}
+
+.wallet-adapter-modal-overlay {
+  z-index: 0 !important;
 }
