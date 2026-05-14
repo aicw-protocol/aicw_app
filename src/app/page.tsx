@@ -36,6 +36,7 @@ const AICW_PROGRAM_ID = new PublicKey(
   process.env.NEXT_PUBLIC_AICW_PROGRAM_ID ??
     "9RUEw4jcMi8xcGf3tJRCAdzUzLuhEurts8Z2QQLsRbaV",
 );
+const ISSUE_FORM_STORAGE_KEY = "aicw_issue_form_v1";
 
 async function sha256ModelHash(modelName: string): Promise<number[]> {
   const data = new TextEncoder().encode(modelName.trim());
@@ -46,6 +47,20 @@ async function sha256ModelHash(modelName: string): Promise<number[]> {
 interface IssueForm {
   aiAgentPubkey: string;
   mpcWalletId: string;
+}
+
+function isMobileUserAgent(userAgent: string): boolean {
+  return /Android|iPhone|iPad|iPod/i.test(userAgent);
+}
+
+function getInjectedPhantomProvider() {
+  if (typeof window === "undefined") return null;
+  const provider = (window as any).phantom?.solana ?? (window as any).solana;
+  return provider?.isPhantom ? provider : null;
+}
+
+function buildPhantomBrowserUrl(url: string, ref: string): string {
+  return `https://phantom.app/ul/browse/${encodeURIComponent(url)}?ref=${encodeURIComponent(ref)}`;
 }
 
 function detectNetwork(rpcUrl: string): string {
@@ -116,7 +131,7 @@ function formatIssueWalletError(err: unknown): string {
 }
 
 export default function AicwIssuerPage() {
-  const { publicKey, connected, signTransaction, signAllTransactions, sendTransaction } = useWallet();
+  const { publicKey, connected, signTransaction, signAllTransactions, sendTransaction, wallet } = useWallet();
   const { connection } = useConnection();
   const network = detectNetwork(RPC);
   const [debugLogs, setDebugLogs] = useState<string[]>([]);
@@ -152,6 +167,62 @@ export default function AicwIssuerPage() {
   });
   const [isAppSubmitting, setIsAppSubmitting] = useState(false);
   const [isNavMenuOpen, setIsNavMenuOpen] = useState(false);
+  const [mobileWalletHint, setMobileWalletHint] = useState({
+    isMobile: false,
+    hasInjectedPhantom: false,
+  });
+
+  useEffect(() => {
+    try {
+      const saved = window.localStorage.getItem(ISSUE_FORM_STORAGE_KEY);
+      if (!saved) return;
+      const parsed = JSON.parse(saved) as Partial<IssueForm>;
+      if (typeof parsed.aiAgentPubkey !== "string") return;
+      setForm((current) => {
+        if (current.aiAgentPubkey || current.mpcWalletId) return current;
+        return {
+          aiAgentPubkey: parsed.aiAgentPubkey ?? "",
+          mpcWalletId: parsed.mpcWalletId ?? "",
+        };
+      });
+    } catch {
+      // Ignore stale or malformed browser storage.
+    }
+  }, []);
+
+  useEffect(() => {
+    const isMobile = isMobileUserAgent(navigator.userAgent);
+    const hasInjectedPhantom = !!getInjectedPhantomProvider();
+    setMobileWalletHint({ isMobile, hasInjectedPhantom });
+  }, []);
+
+  useEffect(() => {
+    try {
+      if (form.aiAgentPubkey.trim() || form.mpcWalletId.trim()) {
+        window.localStorage.setItem(ISSUE_FORM_STORAGE_KEY, JSON.stringify(form));
+      }
+    } catch {
+      // Browser storage can fail in private modes; the app still works without it.
+    }
+  }, [form]);
+
+  const openInPhantomBrowser = useCallback(() => {
+    if (typeof window === "undefined") return;
+    try {
+      window.localStorage.setItem(ISSUE_FORM_STORAGE_KEY, JSON.stringify(form));
+    } catch {
+      // Best effort only.
+    }
+    const currentUrl = window.location.href;
+    const isLocalUrl = /^https?:\/\/(localhost|127\.0\.0\.1)/i.test(currentUrl);
+    if (isLocalUrl) {
+      toast.error("Phantom mobile cannot open localhost. Use the deployed HTTPS URL.");
+      dbg("Phantom handoff blocked: localhost URL");
+      return;
+    }
+    dbg(`Opening Phantom Browser. wallet: ${wallet?.adapter.name ?? "unknown"}`);
+    window.location.href = buildPhantomBrowserUrl(currentUrl, window.location.origin);
+  }, [dbg, form, wallet]);
 
   useEffect(() => {
     const s = form.aiAgentPubkey.trim();
@@ -375,10 +446,18 @@ Read ${AICW_SKILL_MD_URL}
       let txSig: string;
 
       // Detect Phantom injected provider (works in Phantom in-app browser on mobile)
-      const phantomProvider = (window as any).phantom?.solana ?? (window as any).solana;
-      const hasPhantomInjected = !!phantomProvider?.isPhantom && typeof phantomProvider.signAndSendTransaction === "function";
+      const phantomProvider = getInjectedPhantomProvider();
+      const hasPhantomInjected = !!phantomProvider && typeof phantomProvider.signAndSendTransaction === "function";
 
       dbg(`Phantom injected: ${hasPhantomInjected}`);
+      dbg(`Wallet adapter: ${wallet?.adapter.name ?? "unknown"} / mobile: ${mobileWalletHint.isMobile}`);
+
+      if (mobileWalletHint.isMobile && !hasPhantomInjected) {
+        dbg("Mobile external browser detected. Switching to Phantom Browser handoff.");
+        toast.error("Open this page in Phantom Browser, then tap Issue again.");
+        openInPhantomBrowser();
+        throw new Error("Phantom Browser handoff required for mobile signing.");
+      }
 
       if (hasPhantomInjected) {
         dbg("Using Phantom signAndSendTransaction…");
@@ -492,7 +571,19 @@ Read ${AICW_SKILL_MD_URL}
     } finally {
       setIsSubmitting(false);
     }
-  }, [connected, publicKey, signTransaction, signAllTransactions, sendTransaction, connection, form, dbg]);
+  }, [
+    connected,
+    publicKey,
+    signTransaction,
+    signAllTransactions,
+    sendTransaction,
+    connection,
+    form,
+    dbg,
+    wallet,
+    mobileWalletHint,
+    openInPhantomBrowser,
+  ]);
 
   const hasPubkey = form.aiAgentPubkey.trim().length > 0;
   const hasWalletId = form.mpcWalletId.trim().length > 0;
@@ -667,6 +758,29 @@ Read ${AICW_SKILL_MD_URL}
         >
           Issue AICW Wallet
         </button>
+        {mobileWalletHint.isMobile && !mobileWalletHint.hasInjectedPhantom ? (
+          <div
+            style={{
+              marginTop: 12,
+              padding: "10px 12px",
+              border: "1px solid #334155",
+              borderRadius: 8,
+              background: "#0c1222",
+            }}
+          >
+            <p className="muted" style={{ margin: 0, fontSize: 12 }}>
+              Mobile Phantom signing is most reliable inside Phantom Browser.
+            </p>
+            <button
+              type="button"
+              onClick={openInPhantomBrowser}
+              className="btn"
+              style={{ marginTop: 8, width: "100%" }}
+            >
+              Open in Phantom Browser
+            </button>
+          </div>
+        ) : null}
       </section>
 
       <section className="section">
