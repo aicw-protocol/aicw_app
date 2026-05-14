@@ -154,12 +154,8 @@ export const EXPLORER_PAGE_SIZE = 20;
 
 /** Columns that can be sorted without loading every wallet’s AIWill (AICWallet fields only). */
 export type ExplorerListSortKey =
-  | "aiAgentPubkey"
-  | "issuerPubkey"
-  | "totalTransactions"
-  | "totalVolumeLamports"
-  | "decisionsMade"
-  | "decisionsRejected"
+  | "balanceLamports"
+  | "willActivated"
   | "createdAtUnix";
 
 type AicwAcctShape = {
@@ -199,34 +195,40 @@ export function compareAicwEntries(
   const aa = asAicwAcct(a.account);
   const bb = asAicwAcct(b.account);
   switch (key) {
-    case "aiAgentPubkey":
-      return aa.aiAgentPubkey.toBase58().localeCompare(bb.aiAgentPubkey.toBase58()) * mul;
-    case "issuerPubkey":
-      return aa.issuerPubkey.toBase58().localeCompare(bb.issuerPubkey.toBase58()) * mul;
-    case "totalTransactions": {
-      const dx =
-        BigInt(bnToStr(aa.totalTransactions)) - BigInt(bnToStr(bb.totalTransactions));
-      if (dx === BigInt(0)) return 0;
-      return dx > BigInt(0) ? mul : -mul;
-    }
-    case "totalVolumeLamports": {
-      const dx = BigInt(bnToStr(aa.totalVolume)) - BigInt(bnToStr(bb.totalVolume));
-      if (dx === BigInt(0)) return 0;
-      return dx > BigInt(0) ? mul : -mul;
-    }
-    case "decisionsMade": {
-      const dx = BigInt(bnToStr(aa.decisionsMade)) - BigInt(bnToStr(bb.decisionsMade));
-      if (dx === BigInt(0)) return 0;
-      return dx > BigInt(0) ? mul : -mul;
-    }
-    case "decisionsRejected": {
-      const dx =
-        BigInt(bnToStr(aa.decisionsRejected)) - BigInt(bnToStr(bb.decisionsRejected));
-      if (dx === BigInt(0)) return 0;
-      return dx > BigInt(0) ? mul : -mul;
-    }
     case "createdAtUnix":
       return (aa.createdAt.toNumber() - bb.createdAt.toNumber()) * mul;
+    default:
+      return 0;
+  }
+}
+
+/** Compare ExplorerRow for Bal, W+, and creation date sorting. */
+export function compareExplorerRows(
+  a: ExplorerRow,
+  b: ExplorerRow,
+  key: ExplorerListSortKey,
+  dir: 1 | -1,
+): number {
+  const mul = dir;
+  switch (key) {
+    case "balanceLamports": {
+      const diff = a.balanceLamports - b.balanceLamports;
+      // Secondary sort by creation date (newest first) when balance is equal
+      if (diff === 0) return b.createdAtUnix - a.createdAtUnix;
+      return diff * mul;
+    }
+    case "willActivated": {
+      // Yes (true) first, then No (false)
+      const aVal = a.willActivated ? 1 : 0;
+      const bVal = b.willActivated ? 1 : 0;
+      const diff = bVal - aVal;
+      // Secondary sort by creation date (newest first) when W+ is equal
+      if (diff === 0) return b.createdAtUnix - a.createdAtUnix;
+      return diff * mul;
+    }
+    case "createdAtUnix": {
+      return (a.createdAtUnix - b.createdAtUnix) * mul;
+    }
     default:
       return 0;
   }

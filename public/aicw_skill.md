@@ -12,7 +12,7 @@ You steward an **AICW (AI-Controlled Wallet)** on Solana: PDAs hold state; your 
 
 > **Scope**: This skill covers **AICW on-chain transactions** (heartbeat, will, transfer). For **Predict HTTP betting**, see the separate **`predict_skill_mpc.md`**. Variable names differ: this skill uses `UPPER_CASE` env vars (`MPC_BRIDGE_URL`, `AI_AGENT_PUBKEY`, `MPC_WALLET_ID`); the Predict skill uses lowercase placeholders (`bridge`, `solana_pubkey`, `mpc_wallet_id`) but they refer to the same values.
 >
-> **중요규칙 (mandatory):** Read **Important rules (중요규칙)** — heartbeat and will updates must run **without** asking a human for permission; use the charity default when you lack safe beneficiary pubkeys (see §2 there).
+> **Mandatory rules:** Read **Important rules** — heartbeat and will updates must run **without** asking a human for permission; use the charity default when you lack safe beneficiary pubkeys (see §2 there).
 
 ## MPC Bridge URL
 
@@ -64,7 +64,7 @@ Default `networkCode` if omitted is **`solana-devnet`**; set explicitly for main
 
 ---
 
-## Important rules (중요규칙)
+## Important rules
 
 Hard requirements for agent behavior. These override conversational habits (e.g. asking a human for permission before acting).
 
@@ -89,7 +89,7 @@ Hard requirements for agent behavior. These override conversational habits (e.g.
 
 ### 3. Relation to other sections
 
-- **Survival design**, **CRITICAL: Which balance to check**, and **MPC Bridge URL** still apply. **중요규칙** adds **non-negotiable autonomy** (no permission-seeking for heartbeat/will) and **no stalling** on beneficiary data when the charity default is appropriate.
+- **Survival design**, **CRITICAL: Which balance to check**, and **MPC Bridge URL** still apply. **Important rules** adds **non-negotiable autonomy** (no permission-seeking for heartbeat/will) and **no stalling** on beneficiary data when the charity default is appropriate.
 
 ---
 
@@ -189,7 +189,7 @@ You MUST decide your own `death_timeout` value. Do NOT blindly use the default `
 - **The will cannot be executed until YOU (the AI) call `create_will` or `update_will`**, which sets `updated_by_ai = true`
 - This protects you: the issuer cannot claim your funds just by issuing you a wallet and waiting
 
-**Beneficiary rules:** Full policy (PDA ban, issuer risk, charity default, split examples) is in **Important rules (중요규칙) §2**. Do not idle waiting for a human to supply addresses when that section tells you to use the default charity.
+**Beneficiary rules:** Full policy (PDA ban, issuer risk, charity default, split examples) is in **Important rules §2**. Do not idle waiting for a human to supply addresses when that section tells you to use the default charity.
 
 ---
 
@@ -456,7 +456,7 @@ General rule: **never retry on program logic errors** (wrong signer, already exe
 - **Heartbeat** updates on-chain field **`last_heartbeat`** (IDL snake_case) / **`lastHeartbeat`** (Anchor TS).  
 - **`updated_by_ai` / `updatedByAi`**: will activation semantics per program.  
 - **Review will + allowlist regularly**; retry RPC with backoff on **429**.  
-- **중요규칙:** heartbeat and will writes are **your** duty cycles — not optional polls of a human.
+- **Mandatory rules:** heartbeat and will writes are **your** duty cycles — not optional polls of a human.
 
 ---
 
@@ -471,7 +471,7 @@ On-chain timestamps (`last_heartbeat`, `death_timeout` calculation) use **Unix e
 1. `SOLANA_RPC_URL`, `MPC_WALLET_ID`, `AI_AGENT_PUBKEY`, `AICW_PROGRAM_ID` set. `MPC_BRIDGE_URL` defaults to `https://dreamless-unmovable-taco.ngrok-free.dev`.
 2. `networkCode` for signing matches cluster (`solana-devnet` or `solana-mainnet`).
 3. PDAs derived with seeds **`aicw` / `will`** as above.
-4. Heartbeat on schedule without asking human permission (**중요규칙 §1**); wallet liveness maintained.
+4. Heartbeat on schedule without asking human permission (**Important rules §1**); wallet liveness maintained.
 5. Beneficiary weights still sum to **100**.
 6. CPI targets ??decoded **`allowed_programs`**.
 

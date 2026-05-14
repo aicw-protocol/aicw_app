@@ -690,7 +690,6 @@ Read ${AICW_SKILL_MD_URL}
           {agentKeyReady && aicwExistsOnChain === true ? (
             <span className="pill warn-pill" title="This AI public key already has an AICW wallet on this network.">
               <i className="fa-solid fa-circle-exclamation" />
-              Already on-chain
             </span>
           ) : agentKeyReady && aicwExistsOnChain === null ? (
             <span className="pill muted-pill">
@@ -812,7 +811,7 @@ Read ${AICW_SKILL_MD_URL}
                   : aicwExistsOnChain === null
                     ? "Checking…"
                     : aicwExistsOnChain
-                      ? "Already on-chain"
+                      ? ""
                       : "Ready"}
             </span>
           </p>

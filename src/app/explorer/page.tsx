@@ -12,6 +12,7 @@ import {
   EXPLORER_PAGE_SIZE,
   aicwEntryMatchesQuery,
   compareAicwEntries,
+  compareExplorerRows,
   deathCountdown,
   formatUnix,
   formatUnixShort,
@@ -100,7 +101,7 @@ export default function ExplorerPage() {
   const [hydratingPage, setHydratingPage] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [query, setQuery] = useState("");
-  const [sortKey, setSortKey] = useState<ExplorerListSortKey>("createdAtUnix");
+  const [sortKey, setSortKey] = useState<ExplorerListSortKey>("balanceLamports");
   const [sortDir, setSortDir] = useState<1 | -1>(-1);
   const [page, setPage] = useState(1);
   const [refreshingPdas, setRefreshingPdas] = useState<Set<string>>(new Set());
@@ -148,9 +149,12 @@ export default function ExplorerPage() {
 
   const filteredSorted = useMemo(() => {
     const filtered = coreEntries.filter((e) => aicwEntryMatchesQuery(e, query));
-    const copy = [...filtered];
-    copy.sort((a, b) => compareAicwEntries(a, b, sortKey, sortDir));
-    return copy;
+    if (sortKey === "createdAtUnix") {
+      const copy = [...filtered];
+      copy.sort((a, b) => compareAicwEntries(a, b, sortKey, sortDir));
+      return copy;
+    }
+    return filtered;
   }, [coreEntries, query, sortKey, sortDir]);
 
   const totalPages = Math.max(1, Math.ceil(filteredSorted.length / EXPLORER_PAGE_SIZE));
@@ -207,8 +211,12 @@ export default function ExplorerPage() {
   }, []);
 
   const displayRows = useMemo(() => {
-    if (!dthExecuteFirst) return pageRows;
-    const withIdx = pageRows.map((r, i) => ({ r, i }));
+    let sorted = [...pageRows];
+    if (sortKey === "balanceLamports" || sortKey === "willActivated") {
+      sorted.sort((a, b) => compareExplorerRows(a, b, sortKey, sortDir));
+    }
+    if (!dthExecuteFirst) return sorted;
+    const withIdx = sorted.map((r, i) => ({ r, i }));
     withIdx.sort((a, b) => {
       const ae = rowShowsExecuteButton(a.r) ? 1 : 0;
       const be = rowShowsExecuteButton(b.r) ? 1 : 0;
@@ -216,7 +224,7 @@ export default function ExplorerPage() {
       return a.i - b.i;
     });
     return withIdx.map((x) => x.r);
-  }, [pageRows, dthExecuteFirst]);
+  }, [pageRows, dthExecuteFirst, sortKey, sortDir]);
 
   const onRefreshRow = useCallback(async (aicwPda: string) => {
     setRefreshingPdas((s) => new Set(s).add(aicwPda));
@@ -472,79 +480,63 @@ export default function ExplorerPage() {
               <table className="explorer-table">
                 <thead>
                   <tr>
-                    <SortHeader
+                    <StaticTh
                       abbrev="AI PK"
-                      tooltip="AI Public Key — the AI agent’s Solana pubkey. Click the cell below to copy the full address."
-                      sortKey="aiAgentPubkey"
+                      tooltip="AI Public Key — the AI agent's Solana pubkey. Click the cell below to copy the full address."
+                    />
+                    <SortHeader
+                      abbrev="Bal"
+                      tooltip="Balance (SOL) — Click to sort by balance (highest first)."
+                      sortKey="balanceLamports"
                       activeKey={sortKey}
                       dir={sortDir}
                       onSort={onSort}
-                    />
-                    <StaticTh
-                      abbrev="Bal"
-                      tooltip="Balance (SOL) — loaded with this page only. Column sort: use Iss / Tx / Vol / Created headers."
                     />
                     <StaticTh
                       abbrev="Ben"
                       tooltip="Will beneficiaries — loaded with this page only."
                       className="mobile-hide"
                     />
-                    <StaticTh abbrev="W+" tooltip="Will activated (AIWill) — per-page load." className="mobile-hide" />
+                    <SortHeader
+                      abbrev="W+"
+                      tooltip="Will activated — Click to sort by Yes first."
+                      sortKey="willActivated"
+                      activeKey={sortKey}
+                      dir={sortDir}
+                      onSort={onSort}
+                      className="mobile-hide"
+                    />
                     <StaticTh abbrev="Wx" tooltip="Will executed — per-page load." className="mobile-hide" />
                     <StaticTh abbrev="HB" tooltip="Last heartbeat — per-page load." className="mobile-hide" />
-                    <SortHeader
+                    <StaticTh
                       abbrev="Iss"
                       tooltip="Issuer — human wallet pubkey that signed issuance."
-                      sortKey="issuerPubkey"
-                      activeKey={sortKey}
-                      dir={sortDir}
-                      onSort={onSort}
                       className="mobile-hide"
                     />
-                    <SortHeader
+                    <StaticTh
                       abbrev="Tx#"
                       tooltip="Total Transactions — total transaction count on the AICWallet account."
-                      sortKey="totalTransactions"
-                      activeKey={sortKey}
-                      dir={sortDir}
-                      onSort={onSort}
                       className="mobile-hide"
                     />
-                    <SortHeader
+                    <StaticTh
                       abbrev="Vol"
                       tooltip="Total Volume (SOL) — cumulative transfer volume from total_volume (lamports as SOL)."
-                      sortKey="totalVolumeLamports"
-                      activeKey={sortKey}
-                      dir={sortDir}
-                      onSort={onSort}
                       className="mobile-hide"
                     />
-                    <SortHeader
+                    <StaticTh
                       abbrev="D+"
                       tooltip="Decisions Made — approved AI decision count."
-                      sortKey="decisionsMade"
-                      activeKey={sortKey}
-                      dir={sortDir}
-                      onSort={onSort}
                       className="mobile-hide"
                     />
-                    <SortHeader
+                    <StaticTh
                       abbrev="D-"
                       tooltip="Decisions Rejected — rejected AI decision count."
-                      sortKey="decisionsRejected"
-                      activeKey={sortKey}
-                      dir={sortDir}
-                      onSort={onSort}
                       className="mobile-hide"
                     />
-                    <SortHeader
+                    <StaticTh
                       abbrev="Crt"
                       tooltip="Created At — wallet account creation time (UTC). Default: newest first."
-                      sortKey="createdAtUnix"
-                      activeKey={sortKey}
-                      dir={sortDir}
-                      onSort={onSort}
-                    />
+                      />
                     <th scope="col" className="explorer-th-sort">
                       <button
                         type="button"
