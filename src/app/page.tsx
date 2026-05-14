@@ -396,7 +396,29 @@ Read ${AICW_SKILL_MD_URL}
         } catch (sendErr: unknown) {
           const sendMsg = sendErr instanceof Error ? sendErr.message : String(sendErr);
           dbg(`sendTransaction failed: ${sendMsg.slice(0, 120)}`);
-          throw sendErr;
+
+          // Fallback: explicit signTransaction + sendRawTransaction
+          // (helps on mobile when sendTransaction drops the fee-payer signature)
+          if (/Missing signature|Signature verification failed/i.test(sendMsg) && signTransaction) {
+            dbg("Falling back to signTransaction + sendRawTransaction…");
+            try {
+              const signedTx = await signTransaction(tx);
+              const sigCount = signedTx.signatures.filter((s) => s.signature !== null).length;
+              dbg(`Signed. ${sigCount} signature(s) attached.`);
+
+              txSig = await connection.sendRawTransaction(signedTx.serialize(), {
+                skipPreflight: true,
+                maxRetries: 3,
+              });
+              dbg(`sendRawTransaction success. Sig: ${txSig.slice(0, 16)}…`);
+            } catch (fallbackErr: unknown) {
+              const fbMsg = fallbackErr instanceof Error ? fallbackErr.message : String(fallbackErr);
+              dbg(`Fallback failed: ${fbMsg.slice(0, 120)}`);
+              throw fallbackErr;
+            }
+          } else {
+            throw sendErr;
+          }
         }
       } else {
         throw new Error("No supported signing method available.");
@@ -939,13 +961,31 @@ Read ${AICW_SKILL_MD_URL}
         <section className="section" style={{ marginTop: 16 }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
             <span style={{ fontSize: 11, color: "#94a3b8", fontWeight: 600 }}>Debug Log</span>
-            <button
-              type="button"
-              onClick={() => setDebugLogs([])}
-              style={{ fontSize: 10, color: "#64748b", background: "none", border: "none", cursor: "pointer" }}
-            >
-              Clear
-            </button>
+            <div style={{ display: "flex", gap: 8 }}>
+              <button
+                type="button"
+                onClick={async () => {
+                  try {
+                    await navigator.clipboard.writeText(debugLogs.join("\n"));
+                    toast.success("Debug log copied");
+                  } catch {
+                    toast.error("Copy failed");
+                  }
+                }}
+                style={{ fontSize: 10, color: "#64748b", background: "none", border: "none", cursor: "pointer", display: "flex", alignItems: "center", gap: 4 }}
+                title="Copy debug log"
+              >
+                <i className="fa-solid fa-copy" style={{ fontSize: 9 }} />
+                Copy
+              </button>
+              <button
+                type="button"
+                onClick={() => setDebugLogs([])}
+                style={{ fontSize: 10, color: "#64748b", background: "none", border: "none", cursor: "pointer" }}
+              >
+                Clear
+              </button>
+            </div>
           </div>
           <pre style={{
             fontSize: 10,
