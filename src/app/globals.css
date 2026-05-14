@@ -1439,9 +1439,27 @@ a {
     font-size: 10px;
   }
 
+  .explorer-pager {
+    flex-wrap: nowrap !important;
+    justify-content: center;
+    align-items: center;
+    gap: 6px !important;
+    width: 100%;
+  }
+
   .explorer-pager .btn {
-    padding: 8px 12px;
-    font-size: 13px;
+    padding: 6px 8px;
+    font-size: 11px;
+    white-space: nowrap;
+    flex-shrink: 0;
+    min-width: auto;
+    width: auto !important;
+  }
+
+  .explorer-pager .muted {
+    font-size: 10px;
+    white-space: nowrap;
+    flex-shrink: 0;
   }
 
   .icon-link {
@@ -1479,7 +1497,7 @@ a {
     width: 100%;
   }
 
-  .row .btn {
+  .row .btn:not(.explorer-pager .btn) {
     width: 100%;
   }
 

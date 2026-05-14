@@ -116,7 +116,7 @@ function formatIssueWalletError(err: unknown): string {
 }
 
 export default function AicwIssuerPage() {
-  const { publicKey, connected, signTransaction, signAllTransactions } = useWallet();
+  const { publicKey, connected, signTransaction, signAllTransactions, sendTransaction } = useWallet();
   const { connection } = useConnection();
   const network = detectNetwork(RPC);
 
@@ -282,7 +282,7 @@ Read ${AICW_SKILL_MD_URL}
       return;
     }
 
-    if (!signTransaction) {
+    if (!signTransaction || !sendTransaction) {
       toast.error("Wallet does not support signing.");
       return;
     }
@@ -326,7 +326,7 @@ Read ${AICW_SKILL_MD_URL}
       const provider = new AnchorProvider(
         connection,
         walletAdapter as never,
-        { commitment: "confirmed" },
+        { commitment: "confirmed", skipPreflight: true },
       );
 
       const idlWithAddr = {
@@ -338,7 +338,8 @@ Read ${AICW_SKILL_MD_URL}
       const modelName = `aicw:${pk.slice(0, 32)}`;
       const modelHash = await sha256ModelHash(modelName);
 
-      const txSig = await program.methods
+      // Build transaction manually for better mobile wallet compatibility
+      const tx = await program.methods
         .issueWallet(modelHash, modelName)
         .accounts({
           aicwWallet: aicwWalletPda,
@@ -347,7 +348,25 @@ Read ${AICW_SKILL_MD_URL}
           aiAgentPubkey: aiAgentPk,
           systemProgram: SystemProgram.programId,
         })
-        .rpc();
+        .transaction();
+
+      // Get latest blockhash
+      const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash("confirmed");
+      tx.recentBlockhash = blockhash;
+      tx.feePayer = publicKey;
+
+      // Send using wallet adapter's sendTransaction (works better on mobile)
+      const txSig = await sendTransaction(tx, connection, {
+        skipPreflight: true,
+        maxRetries: 3,
+      });
+
+      // Wait for confirmation
+      await connection.confirmTransaction({
+        signature: txSig,
+        blockhash,
+        lastValidBlockHeight,
+      }, "confirmed");
 
       setIssueSuccess({
         txSig,

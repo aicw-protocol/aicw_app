@@ -544,7 +544,6 @@ export default function ExplorerPage() {
                       activeKey={sortKey}
                       dir={sortDir}
                       onSort={onSort}
-                      className="mobile-hide"
                     />
                     <th scope="col" className="explorer-th-sort">
                       <button
@@ -627,7 +626,7 @@ export default function ExplorerPage() {
                         <span className="explorer-num-full">{row.decisionsRejected}</span>
                         <span className="explorer-num-short">{formatNumberShort(row.decisionsRejected)}</span>
                       </td>
-                      <td className="explorer-ts mobile-hide" title={formatUnix(row.createdAtUnix) || ""}>
+                      <td className="explorer-ts" title={formatUnix(row.createdAtUnix) || ""}>
                         <span className="explorer-date-full">{formatUnix(row.createdAtUnix)}</span>
                         <span className="explorer-date-short">{formatUnixShort(row.createdAtUnix)}</span>
                       </td>
