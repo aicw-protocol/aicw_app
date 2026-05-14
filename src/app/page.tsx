@@ -359,33 +359,53 @@ Read ${AICW_SKILL_MD_URL}
       tx.feePayer = publicKey;
 
       dbg(`TX built. feePayer: ${publicKey.toBase58().slice(0, 8)}… blockhash: ${blockhash.slice(0, 8)}…`);
-      dbg(`Pre-sign: sigCount=${tx.signatures.length} required=${tx.signatures.map((s) => s.publicKey.toBase58().slice(0, 4)).join(",")}`);
 
-      const signedTx = await signTransaction(tx);
+      let txSig: string;
 
-      const signedCount = signedTx.signatures.filter((s) => s.signature !== null).length;
-      const expectedSigner = publicKey.toBase58();
-      const signerInfo = signedTx.signatures
-        .map((s) => `${s.publicKey.toBase58().slice(0, 6)}=${s.signature ? "Y" : "N"}`)
-        .join(",");
-      dbg(`Post-sign: ${signedCount}/${signedTx.signatures.length} signed [${signerInfo}]`);
-
-      const feePayerSig = signedTx.signatures.find((s) => s.publicKey.toBase58() === expectedSigner);
-      if (!feePayerSig || !feePayerSig.signature) {
-        dbg("ERROR: Wallet returned tx without fee-payer signature.");
-        throw new Error(
-          "Wallet did not sign the transaction. If you are using Phantom Mobile in-app browser, try the Phantom desktop extension or refresh and re-connect the wallet.",
-        );
+      // Try sendTransaction first (handles signing internally, better mobile support)
+      if (sendTransaction) {
+        dbg("Using sendTransaction (wallet handles signing)…");
+        try {
+          txSig = await sendTransaction(tx, connection, {
+            skipPreflight: true,
+            maxRetries: 3,
+          });
+          dbg(`sendTransaction success. Sig: ${txSig.slice(0, 16)}…`);
+        } catch (sendErr: unknown) {
+          const sendMsg = sendErr instanceof Error ? sendErr.message : String(sendErr);
+          dbg(`sendTransaction failed: ${sendMsg.slice(0, 120)}`);
+          
+          // If sendTransaction fails, try signTransaction + sendRawTransaction as fallback
+          if (signTransaction) {
+            dbg("Fallback: trying signTransaction + sendRawTransaction…");
+            const signedTx = await signTransaction(tx);
+            const sigCount = signedTx.signatures.filter((s) => s.signature !== null).length;
+            dbg(`Signed tx has ${sigCount} signature(s)`);
+            
+            if (sigCount === 0) {
+              throw new Error("Wallet returned unsigned transaction. Please reconnect wallet and try again.");
+            }
+            
+            txSig = await connection.sendRawTransaction(signedTx.serialize(), {
+              skipPreflight: true,
+              maxRetries: 3,
+            });
+            dbg(`Fallback success. Sig: ${txSig.slice(0, 16)}…`);
+          } else {
+            throw sendErr;
+          }
+        }
+      } else if (signTransaction) {
+        dbg("Using signTransaction + sendRawTransaction…");
+        const signedTx = await signTransaction(tx);
+        txSig = await connection.sendRawTransaction(signedTx.serialize(), {
+          skipPreflight: true,
+          maxRetries: 3,
+        });
+        dbg(`TX sent. Sig: ${txSig.slice(0, 16)}…`);
+      } else {
+        throw new Error("Wallet does not support transaction signing.");
       }
-
-      dbg("Sending raw transaction…");
-
-      const txSig = await connection.sendRawTransaction(signedTx.serialize(), {
-        skipPreflight: true,
-        maxRetries: 3,
-      });
-
-      dbg(`TX sent. Sig: ${txSig.slice(0, 16)}…`);
 
       await connection.confirmTransaction({
         signature: txSig,
