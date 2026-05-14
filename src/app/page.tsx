@@ -359,11 +359,26 @@ Read ${AICW_SKILL_MD_URL}
       tx.feePayer = publicKey;
 
       dbg(`TX built. feePayer: ${publicKey.toBase58().slice(0, 8)}… blockhash: ${blockhash.slice(0, 8)}…`);
+      dbg(`Pre-sign: sigCount=${tx.signatures.length} required=${tx.signatures.map((s) => s.publicKey.toBase58().slice(0, 4)).join(",")}`);
 
-      // Sign then send raw — more reliable on mobile wallets
       const signedTx = await signTransaction(tx);
 
-      dbg("TX signed by wallet. Sending raw transaction…");
+      const signedCount = signedTx.signatures.filter((s) => s.signature !== null).length;
+      const expectedSigner = publicKey.toBase58();
+      const signerInfo = signedTx.signatures
+        .map((s) => `${s.publicKey.toBase58().slice(0, 6)}=${s.signature ? "Y" : "N"}`)
+        .join(",");
+      dbg(`Post-sign: ${signedCount}/${signedTx.signatures.length} signed [${signerInfo}]`);
+
+      const feePayerSig = signedTx.signatures.find((s) => s.publicKey.toBase58() === expectedSigner);
+      if (!feePayerSig || !feePayerSig.signature) {
+        dbg("ERROR: Wallet returned tx without fee-payer signature.");
+        throw new Error(
+          "Wallet did not sign the transaction. If you are using Phantom Mobile in-app browser, try the Phantom desktop extension or refresh and re-connect the wallet.",
+        );
+      }
+
+      dbg("Sending raw transaction…");
 
       const txSig = await connection.sendRawTransaction(signedTx.serialize(), {
         skipPreflight: true,
