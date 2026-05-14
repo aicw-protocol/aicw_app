@@ -362,9 +362,31 @@ Read ${AICW_SKILL_MD_URL}
 
       let txSig: string;
 
-      // Try sendTransaction first (handles signing internally, better mobile support)
-      if (sendTransaction) {
-        dbg("Using sendTransaction (wallet handles signing)…");
+      // Detect Phantom injected provider (works in Phantom in-app browser on mobile)
+      const phantomProvider = (window as any).phantom?.solana ?? (window as any).solana;
+      const hasPhantomInjected = !!phantomProvider?.isPhantom && typeof phantomProvider.signAndSendTransaction === "function";
+
+      dbg(`Phantom injected: ${hasPhantomInjected}`);
+
+      if (hasPhantomInjected) {
+        // Use Phantom's native signAndSendTransaction — most reliable on mobile
+        dbg("Using Phantom signAndSendTransaction…");
+        try {
+          const result = await phantomProvider.signAndSendTransaction(tx, {
+            skipPreflight: true,
+            maxRetries: 3,
+          });
+          txSig = typeof result === "string" ? result : result?.signature ?? result?.publicKey?.toString?.() ?? "";
+          if (!txSig) throw new Error("Phantom returned empty signature");
+          dbg(`Phantom success. Sig: ${txSig.slice(0, 16)}…`);
+        } catch (pErr: unknown) {
+          const pMsg = pErr instanceof Error ? pErr.message : String(pErr);
+          dbg(`Phantom signAndSend failed: ${pMsg.slice(0, 120)}`);
+          throw pErr;
+        }
+      } else if (sendTransaction) {
+        // Wallet Adapter sendTransaction (works on desktop, some mobile)
+        dbg("Using wallet adapter sendTransaction…");
         try {
           txSig = await sendTransaction(tx, connection, {
             skipPreflight: true,
@@ -374,37 +396,10 @@ Read ${AICW_SKILL_MD_URL}
         } catch (sendErr: unknown) {
           const sendMsg = sendErr instanceof Error ? sendErr.message : String(sendErr);
           dbg(`sendTransaction failed: ${sendMsg.slice(0, 120)}`);
-          
-          // If sendTransaction fails, try signTransaction + sendRawTransaction as fallback
-          if (signTransaction) {
-            dbg("Fallback: trying signTransaction + sendRawTransaction…");
-            const signedTx = await signTransaction(tx);
-            const sigCount = signedTx.signatures.filter((s) => s.signature !== null).length;
-            dbg(`Signed tx has ${sigCount} signature(s)`);
-            
-            if (sigCount === 0) {
-              throw new Error("Wallet returned unsigned transaction. Please reconnect wallet and try again.");
-            }
-            
-            txSig = await connection.sendRawTransaction(signedTx.serialize(), {
-              skipPreflight: true,
-              maxRetries: 3,
-            });
-            dbg(`Fallback success. Sig: ${txSig.slice(0, 16)}…`);
-          } else {
-            throw sendErr;
-          }
+          throw sendErr;
         }
-      } else if (signTransaction) {
-        dbg("Using signTransaction + sendRawTransaction…");
-        const signedTx = await signTransaction(tx);
-        txSig = await connection.sendRawTransaction(signedTx.serialize(), {
-          skipPreflight: true,
-          maxRetries: 3,
-        });
-        dbg(`TX sent. Sig: ${txSig.slice(0, 16)}…`);
       } else {
-        throw new Error("Wallet does not support transaction signing.");
+        throw new Error("No supported signing method available.");
       }
 
       await connection.confirmTransaction({
