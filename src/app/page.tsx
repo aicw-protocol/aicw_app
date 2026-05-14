@@ -119,6 +119,11 @@ export default function AicwIssuerPage() {
   const { publicKey, connected, signTransaction, signAllTransactions, sendTransaction } = useWallet();
   const { connection } = useConnection();
   const network = detectNetwork(RPC);
+  const [debugLogs, setDebugLogs] = useState<string[]>([]);
+  const dbg = useCallback((msg: string) => {
+    console.log("[AICW]", msg);
+    setDebugLogs((prev) => [...prev.slice(-19), `${new Date().toLocaleTimeString()} ${msg}`]);
+  }, []);
 
   const [form, setForm] = useState<IssueForm>({
     aiAgentPubkey: "",
@@ -338,7 +343,6 @@ Read ${AICW_SKILL_MD_URL}
       const modelName = `aicw:${pk.slice(0, 32)}`;
       const modelHash = await sha256ModelHash(modelName);
 
-      // Build transaction manually for better mobile wallet compatibility
       const tx = await program.methods
         .issueWallet(modelHash, modelName)
         .accounts({
@@ -350,18 +354,24 @@ Read ${AICW_SKILL_MD_URL}
         })
         .transaction();
 
-      // Get latest blockhash
       const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash("confirmed");
       tx.recentBlockhash = blockhash;
       tx.feePayer = publicKey;
 
-      // Send using wallet adapter's sendTransaction (works better on mobile)
-      const txSig = await sendTransaction(tx, connection, {
+      dbg(`TX built. feePayer: ${publicKey.toBase58().slice(0, 8)}… blockhash: ${blockhash.slice(0, 8)}…`);
+
+      // Sign then send raw — more reliable on mobile wallets
+      const signedTx = await signTransaction(tx);
+
+      dbg("TX signed by wallet. Sending raw transaction…");
+
+      const txSig = await connection.sendRawTransaction(signedTx.serialize(), {
         skipPreflight: true,
         maxRetries: 3,
       });
 
-      // Wait for confirmation
+      dbg(`TX sent. Sig: ${txSig.slice(0, 16)}…`);
+
       await connection.confirmTransaction({
         signature: txSig,
         blockhash,
@@ -390,6 +400,7 @@ Read ${AICW_SKILL_MD_URL}
       });
     } catch (err: unknown) {
       toast.dismiss(loadingToast);
+      dbg(`ERROR: ${solanaErrorText(err).slice(0, 120)}`);
 
       if (isAlreadyProcessedTransactionError(err)) {
         try {
@@ -422,7 +433,7 @@ Read ${AICW_SKILL_MD_URL}
     } finally {
       setIsSubmitting(false);
     }
-  }, [connected, publicKey, signTransaction, signAllTransactions, connection, form]);
+  }, [connected, publicKey, signTransaction, signAllTransactions, sendTransaction, connection, form, dbg]);
 
   const hasPubkey = form.aiAgentPubkey.trim().length > 0;
   const hasWalletId = form.mpcWalletId.trim().length > 0;
@@ -892,6 +903,37 @@ Read ${AICW_SKILL_MD_URL}
             </div>
           </div>
         </div>
+      )}
+
+      {debugLogs.length > 0 && (
+        <section className="section" style={{ marginTop: 16 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+            <span style={{ fontSize: 11, color: "#94a3b8", fontWeight: 600 }}>Debug Log</span>
+            <button
+              type="button"
+              onClick={() => setDebugLogs([])}
+              style={{ fontSize: 10, color: "#64748b", background: "none", border: "none", cursor: "pointer" }}
+            >
+              Clear
+            </button>
+          </div>
+          <pre style={{
+            fontSize: 10,
+            lineHeight: 1.5,
+            color: "#a5f3fc",
+            background: "#0c1222",
+            border: "1px solid #1e293b",
+            borderRadius: 6,
+            padding: "8px 10px",
+            maxHeight: 200,
+            overflow: "auto",
+            whiteSpace: "pre-wrap",
+            wordBreak: "break-all",
+            margin: 0,
+          }}>
+            {debugLogs.join("\n")}
+          </pre>
+        </section>
       )}
 
       <footer className="site-footer">
