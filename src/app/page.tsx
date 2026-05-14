@@ -4,7 +4,7 @@ import { useState, useCallback, useEffect } from "react";
 import toast from "react-hot-toast";
 import Link from "next/link";
 import dynamic from "next/dynamic";
-import { Connection, PublicKey, SystemProgram, SendTransactionError } from "@solana/web3.js";
+import { Connection, PublicKey, SystemProgram, SendTransactionError, VersionedTransaction, TransactionMessage } from "@solana/web3.js";
 import { AnchorProvider, Program, type Idl } from "@coral-xyz/anchor";
 import { useWallet } from "@solana/wallet-adapter-react";
 import { useConnection } from "@solana/wallet-adapter-react";
@@ -360,6 +360,18 @@ Read ${AICW_SKILL_MD_URL}
 
       dbg(`TX built. feePayer: ${publicKey.toBase58().slice(0, 8)}… blockhash: ${blockhash.slice(0, 8)}…`);
 
+      // Convert legacy Transaction → VersionedTransaction (v0).
+      // VersionedTransaction serializes WITHOUT verifying signatures,
+      // which is critical for mobile deep-link wallets that sign externally.
+      const msgV0 = new TransactionMessage({
+        payerKey: publicKey,
+        recentBlockhash: blockhash,
+        instructions: tx.instructions,
+      }).compileToV0Message();
+      const versionedTx = new VersionedTransaction(msgV0);
+
+      dbg(`VersionedTx built. ${tx.instructions.length} ix, ${versionedTx.message.staticAccountKeys.length} keys`);
+
       let txSig: string;
 
       // Detect Phantom injected provider (works in Phantom in-app browser on mobile)
@@ -369,10 +381,9 @@ Read ${AICW_SKILL_MD_URL}
       dbg(`Phantom injected: ${hasPhantomInjected}`);
 
       if (hasPhantomInjected) {
-        // Use Phantom's native signAndSendTransaction — most reliable on mobile
         dbg("Using Phantom signAndSendTransaction…");
         try {
-          const result = await phantomProvider.signAndSendTransaction(tx, {
+          const result = await phantomProvider.signAndSendTransaction(versionedTx, {
             skipPreflight: true,
             maxRetries: 3,
           });
@@ -385,10 +396,9 @@ Read ${AICW_SKILL_MD_URL}
           throw pErr;
         }
       } else if (sendTransaction) {
-        // Wallet Adapter sendTransaction (works on desktop, some mobile)
         dbg("Using wallet adapter sendTransaction…");
         try {
-          txSig = await sendTransaction(tx, connection, {
+          txSig = await sendTransaction(versionedTx, connection, {
             skipPreflight: true,
             maxRetries: 3,
           });
@@ -397,23 +407,20 @@ Read ${AICW_SKILL_MD_URL}
           const sendMsg = sendErr instanceof Error ? sendErr.message : String(sendErr);
           dbg(`sendTransaction failed: ${sendMsg.slice(0, 120)}`);
 
-          // Fallback: explicit signTransaction + sendRawTransaction
-          // (helps on mobile when sendTransaction drops the fee-payer signature)
           if (/Missing signature|Signature verification failed/i.test(sendMsg) && signTransaction) {
             dbg("Falling back to signTransaction + sendRawTransaction…");
             try {
-              const signedTx = await signTransaction(tx);
-              const sigCount = signedTx.signatures.filter((s) => s.signature !== null).length;
-              dbg(`Signed. ${sigCount} signature(s) attached.`);
+              const signedVtx = await signTransaction(versionedTx as any);
+              dbg("signTransaction returned. Sending raw…");
 
-              txSig = await connection.sendRawTransaction(signedTx.serialize(), {
-                skipPreflight: true,
-                maxRetries: 3,
-              });
+              txSig = await connection.sendRawTransaction(
+                (signedVtx as VersionedTransaction).serialize(),
+                { skipPreflight: true, maxRetries: 3 },
+              );
               dbg(`sendRawTransaction success. Sig: ${txSig.slice(0, 16)}…`);
             } catch (fallbackErr: unknown) {
               const fbMsg = fallbackErr instanceof Error ? fallbackErr.message : String(fallbackErr);
-              dbg(`Fallback failed: ${fbMsg.slice(0, 120)}`);
+              dbg(`Fallback sign+send failed: ${fbMsg.slice(0, 120)}`);
               throw fallbackErr;
             }
           } else {
