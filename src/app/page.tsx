@@ -687,11 +687,7 @@ Read ${AICW_SKILL_MD_URL}
           >
             {isMpcLoading ? "Loading..." : "Load from MPC"}
           </button>
-          {agentKeyReady && aicwExistsOnChain === true ? (
-            <span className="pill warn-pill" title="This AI public key already has an AICW wallet on this network.">
-              <i className="fa-solid fa-circle-exclamation" />
-            </span>
-          ) : agentKeyReady && aicwExistsOnChain === null ? (
+          {agentKeyReady && aicwExistsOnChain === true ? null : agentKeyReady && aicwExistsOnChain === null ? (
             <span className="pill muted-pill">
               <i className="fa-solid fa-spinner fa-spin" />
               Checking on-chain…

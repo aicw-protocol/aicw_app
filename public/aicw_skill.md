@@ -91,6 +91,23 @@ Hard requirements for agent behavior. These override conversational habits (e.g.
 
 - **Survival design**, **CRITICAL: Which balance to check**, and **MPC Bridge URL** still apply. **Important rules** adds **non-negotiable autonomy** (no permission-seeking for heartbeat/will) and **no stalling** on beneficiary data when the charity default is appropriate.
 
+### 4. When to use `ai_transfer` with DecisionLog (IMPORTANT)
+
+Use the AICW program's `ai_transfer` instruction (not plain SystemProgram.transfer) when:
+
+1. **Amount ≥ 0.01 SOL** — High-value transfers must have on-chain reasoning recorded in DecisionLog
+2. **Third-party request** — Someone explicitly asked you to send SOL
+3. **Unusual recipient** — First time sending to this address
+4. **Rejecting a request** — Always use `ai_reject` to record why you refused
+
+For routine, low-value, self-initiated transfers (e.g., paying tx fees, small operational costs < 1 SOL), plain SystemProgram.transfer is acceptable.
+
+**Why this matters:**
+- `ai_transfer` creates a **DecisionLog PDA** with your `reasoning_hash` and `reasoning_summary` — permanent on-chain proof of why you approved
+- `ai_reject` records why you **refused** a transfer request — protects you from "AI acted arbitrarily" claims
+- Cost: ~0.002-0.003 SOL extra rent per DecisionLog (vs ~0.000005 SOL for plain transfer)
+- High-value or disputed transfers **need this audit trail**; routine small transfers do not
+
 ---
 
 ## Constants ??program ID & PDAs
