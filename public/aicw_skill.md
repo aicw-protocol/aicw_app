@@ -471,7 +471,24 @@ The DecisionLog PDA seed includes `decisions_made` counter. You must read it fir
 
 ```python
 def get_decisions_made(ai_agent: Pubkey) -> int:
-    """Read decisions_made from AICWallet account."""
+    """Read decisions_made from AICWallet account.
+    
+    AICWallet Borsh layout (after 8-byte Anchor discriminator):
+    - wallet_id: [u8; 32]           32 bytes
+    - ai_agent_pubkey: Pubkey       32 bytes
+    - issuer_pubkey: Pubkey         32 bytes
+    - created_at: i64               8 bytes
+    - model_hash: [u8; 32]          32 bytes
+    - generation: u8                1 byte
+    - parent_wallet: Option<Pubkey> 1 byte (tag) + 0 or 32 bytes
+    - allowed_programs: Vec<Pubkey> 4 bytes (len) + len*32 bytes
+    - total_transactions: u64       8 bytes
+    - total_volume: u64             8 bytes
+    - decisions_made: u64           8 bytes  <-- we need this
+    - decisions_rejected: u64       8 bytes
+    - verifiable_autonomy_proof: [u8; 64]  64 bytes
+    - bump: u8                      1 byte
+    """
     aicw = aicw_wallet_pda(ai_agent)
     resp = rpc("getAccountInfo", [str(aicw), {"encoding": "base64", "commitment": "confirmed"}])
     if not resp or not resp.get("value"):
@@ -480,27 +497,32 @@ def get_decisions_made(ai_agent: Pubkey) -> int:
     data_b64 = resp["value"]["data"][0]
     data = base64.b64decode(data_b64)
     
-    # AICWallet layout (after 8-byte discriminator):
-    # wallet_id: [u8; 32]        offset 8,  32 bytes
-    # ai_agent_pubkey: Pubkey    offset 40, 32 bytes
-    # issuer_pubkey: Pubkey      offset 72, 32 bytes
-    # created_at: i64            offset 104, 8 bytes
-    # model_hash: [u8; 32]       offset 112, 32 bytes
-    # generation: u8             offset 144, 1 byte
-    # parent_wallet: Option<Pubkey> offset 145, 1 + 32 bytes
-    # allowed_programs: Vec<Pubkey> offset 178, 4 + (count * 32) bytes
-    # ... then total_transactions, total_volume, decisions_made, decisions_rejected
+    # Fixed offsets (after 8-byte discriminator)
+    offset = 8  # skip discriminator
+    offset += 32  # wallet_id
+    offset += 32  # ai_agent_pubkey
+    offset += 32  # issuer_pubkey
+    offset += 8   # created_at
+    offset += 32  # model_hash
+    offset += 1   # generation
     
-    # Simpler: skip to known offset. With empty allowed_programs (vec len=0):
-    # offset for decisions_made = 8 + 32 + 32 + 32 + 8 + 32 + 1 + 33 + 4 + 8 + 8 = 198
-    # But vec length varies! Read vec_len first at offset 178.
+    # parent_wallet: Option<Pubkey> - Borsh encodes as 1-byte tag + optional 32-byte pubkey
+    parent_tag = data[offset]
+    offset += 1
+    if parent_tag == 1:  # Some(pubkey)
+        offset += 32
+    # if parent_tag == 0: None, no additional bytes
     
-    vec_len_offset = 178
-    vec_len = struct.unpack_from("<I", data, vec_len_offset)[0]
+    # allowed_programs: Vec<Pubkey>
+    vec_len = struct.unpack_from("<I", data, offset)[0]
+    offset += 4 + (vec_len * 32)
     
-    # After allowed_programs vec: total_transactions (u64), total_volume (u64), decisions_made (u64)
-    decisions_made_offset = vec_len_offset + 4 + (vec_len * 32) + 8 + 8
-    decisions_made = struct.unpack_from("<Q", data, decisions_made_offset)[0]
+    # Now we're at total_transactions
+    offset += 8  # skip total_transactions
+    offset += 8  # skip total_volume
+    
+    # Read decisions_made
+    decisions_made = struct.unpack_from("<Q", data, offset)[0]
     return decisions_made
 
 
