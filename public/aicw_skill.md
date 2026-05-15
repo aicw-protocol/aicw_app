@@ -452,210 +452,101 @@ def ix_update_will(
 
 ---
 
-## Python — `ai_transfer` (transfer SOL with on-chain reasoning)
+## Python — `ai_transfer` and `ai_reject`
 
-**Use this for high-value transfers (≥ 10 SOL), third-party requests, or when audit trail is required.**
+`ai_transfer` sends SOL **from AICW PDA** to a recipient and logs reasoning on-chain.
+`ai_reject` records a refusal on-chain without moving SOL.
 
-`ai_transfer` moves SOL **from the AICW PDA** (not from AI Agent Pubkey) to a recipient, and creates a **DecisionLog PDA** recording your reasoning.
+Both create a **DecisionLog PDA** (costs ~0.003 SOL rent, paid by ai_signer).
 
-### Prerequisites
+### When to use (see Important rules §4)
 
-1. **Will activated**: `updated_by_ai = true` (call `create_will` or `update_will` first)
-2. **Wallet alive**: within `death_timeout`
-3. **AICW PDA has funds**: SOL must be deposited to the AICW PDA, not just AI Agent Pubkey
-4. **Enough for rent**: AICW PDA balance after transfer must stay ≥ rent-exempt minimum (~0.005 SOL)
+- `ai_transfer`: Amount ≥ 10 SOL, third-party requests, unusual recipients
+- `ai_reject`: When you refuse a transfer request
+- For small, routine transfers: plain SystemProgram.transfer is fine
 
-### Read `decisions_made` from AICWallet
-
-The DecisionLog PDA seed includes `decisions_made` counter. You must read it first:
-
-```python
-def get_decisions_made(ai_agent: Pubkey) -> int:
-    """Read decisions_made from AICWallet account.
-    
-    AICWallet Borsh layout (after 8-byte Anchor discriminator):
-    - wallet_id: [u8; 32]           32 bytes
-    - ai_agent_pubkey: Pubkey       32 bytes
-    - issuer_pubkey: Pubkey         32 bytes
-    - created_at: i64               8 bytes
-    - model_hash: [u8; 32]          32 bytes
-    - generation: u8                1 byte
-    - parent_wallet: Option<Pubkey> 1 byte (tag) + 0 or 32 bytes
-    - allowed_programs: Vec<Pubkey> 4 bytes (len) + len*32 bytes
-    - total_transactions: u64       8 bytes
-    - total_volume: u64             8 bytes
-    - decisions_made: u64           8 bytes  <-- we need this
-    - decisions_rejected: u64       8 bytes
-    - verifiable_autonomy_proof: [u8; 64]  64 bytes
-    - bump: u8                      1 byte
-    """
-    aicw = aicw_wallet_pda(ai_agent)
-    resp = rpc("getAccountInfo", [str(aicw), {"encoding": "base64", "commitment": "confirmed"}])
-    if not resp or not resp.get("value"):
-        raise RuntimeError("AICWallet account not found")
-    
-    data_b64 = resp["value"]["data"][0]
-    data = base64.b64decode(data_b64)
-    
-    # Fixed offsets (after 8-byte discriminator)
-    offset = 8  # skip discriminator
-    offset += 32  # wallet_id
-    offset += 32  # ai_agent_pubkey
-    offset += 32  # issuer_pubkey
-    offset += 8   # created_at
-    offset += 32  # model_hash
-    offset += 1   # generation
-    
-    # parent_wallet: Option<Pubkey> - Borsh encodes as 1-byte tag + optional 32-byte pubkey
-    parent_tag = data[offset]
-    offset += 1
-    if parent_tag == 1:  # Some(pubkey)
-        offset += 32
-    # if parent_tag == 0: None, no additional bytes
-    
-    # allowed_programs: Vec<Pubkey>
-    vec_len = struct.unpack_from("<I", data, offset)[0]
-    offset += 4 + (vec_len * 32)
-    
-    # Now we're at total_transactions
-    offset += 8  # skip total_transactions
-    offset += 8  # skip total_volume
-    
-    # Read decisions_made
-    decisions_made = struct.unpack_from("<Q", data, offset)[0]
-    return decisions_made
-
-
-def decision_log_pda(aicw_wallet: Pubkey, decisions_made: int) -> Pubkey:
-    """Seed: b'decision' + aicw_wallet + decisions_made (u64 LE)."""
-    return Pubkey.find_program_address(
-        [b"decision", bytes(aicw_wallet), struct.pack("<Q", decisions_made)],
-        PROGRAM_ID
-    )[0]
-```
-
-### `ai_transfer` instruction
+### Helper: read `decisions_made` from chain
 
 ```python
 SYSTEM_PROGRAM = Pubkey.from_string("11111111111111111111111111111111")
 
-def ix_ai_transfer(
-    ai_agent: Pubkey,
-    recipient: Pubkey,
-    amount_lamports: int,
-    reasoning_summary: str,
-) -> Instruction:
-    """
-    Transfer SOL from AICW PDA to recipient with on-chain reasoning.
-    
-    Args:
-        ai_agent: Your AI agent pubkey (signer)
-        recipient: Destination pubkey
-        amount_lamports: Amount in lamports (1 SOL = 1_000_000_000)
-        reasoning_summary: Why you approved (max 200 chars)
-    """
-    if len(reasoning_summary) > 200:
-        raise ValueError("reasoning_summary max 200 characters")
-    
+def get_decisions_made(ai_agent: Pubkey) -> int:
+    """Read decisions_made counter from AICWallet account data.
+    Returns an integer (usually 0 for new wallets)."""
+    aicw = aicw_wallet_pda(ai_agent)
+    resp = rpc("getAccountInfo", [str(aicw), {"encoding": "base64", "commitment": "confirmed"}])
+    if not resp or not resp.get("value"):
+        raise RuntimeError("AICWallet account not found")
+    data = base64.b64decode(resp["value"]["data"][0])
+    # Offset 166 = decisions_made (u64, little-endian)
+    # Layout: 8(disc)+32(id)+32(agent)+32(issuer)+8(created)+32(hash)+1(gen)+1(parent=None)+4(vec=empty)+8(tx)+8(vol)=166
+    return struct.unpack_from("<Q", data, 166)[0]
+
+
+def decision_log_pda(aicw_wallet: Pubkey, decisions_made: int) -> Pubkey:
+    return Pubkey.find_program_address(
+        [b"decision", bytes(aicw_wallet), struct.pack("<Q", decisions_made)],
+        PROGRAM_ID,
+    )[0]
+```
+
+### `ai_transfer` — send SOL with on-chain reasoning
+
+```python
+def ix_ai_transfer(ai_agent: Pubkey, recipient: Pubkey, amount_lamports: int, reasoning_summary: str) -> Instruction:
     disc = bytes([170, 70, 232, 144, 196, 137, 80, 34])
     aicw = aicw_wallet_pda(ai_agent)
     will = ai_will_pda(aicw)
-    decisions_made = get_decisions_made(ai_agent)
-    decision_log = decision_log_pda(aicw, decisions_made)
-    
-    # Compute reasoning_hash (SHA256 of summary)
-    reasoning_hash = list(hashlib.sha256(reasoning_summary.encode()).digest())
-    
-    # Args: amount (u64), reasoning_hash ([u8; 32]), reasoning_summary (String)
-    body = struct.pack("<Q", amount_lamports)
-    body += bytes(reasoning_hash)
+    decision_log = decision_log_pda(aicw, get_decisions_made(ai_agent))
+    reasoning_hash = hashlib.sha256(reasoning_summary.encode()).digest()
+
+    body = struct.pack("<Q", amount_lamports) + reasoning_hash
     body += struct.pack("<I", len(reasoning_summary)) + reasoning_summary.encode()
-    
-    return Instruction(
-        program_id=PROGRAM_ID,
-        data=disc + body,
-        accounts=[
-            AccountMeta(pubkey=aicw, is_signer=False, is_writable=True),
-            AccountMeta(pubkey=will, is_signer=False, is_writable=False),
-            AccountMeta(pubkey=ai_agent, is_signer=True, is_writable=True),
-            AccountMeta(pubkey=recipient, is_signer=False, is_writable=True),
-            AccountMeta(pubkey=decision_log, is_signer=False, is_writable=True),
-            AccountMeta(pubkey=SYSTEM_PROGRAM, is_signer=False, is_writable=False),
-        ],
-    )
 
+    return Instruction(program_id=PROGRAM_ID, data=disc + body, accounts=[
+        AccountMeta(pubkey=aicw,          is_signer=False, is_writable=True),
+        AccountMeta(pubkey=will,          is_signer=False, is_writable=False),
+        AccountMeta(pubkey=ai_agent,      is_signer=True,  is_writable=True),
+        AccountMeta(pubkey=recipient,     is_signer=False, is_writable=True),
+        AccountMeta(pubkey=decision_log,  is_signer=False, is_writable=True),
+        AccountMeta(pubkey=SYSTEM_PROGRAM,is_signer=False, is_writable=False),
+    ])
 
-# Example usage:
-# import hashlib
-# recipient = Pubkey.from_string("...")
-# ix = ix_ai_transfer(AI_AGENT_PUBKEY, recipient, 200_000_000, "Approved: payment for service")
-# sig = sign_and_send_versioned(AI_AGENT_PUBKEY, [ix])
+# Example: send 0.2 SOL from AICW PDA
+# sig = sign_and_send_versioned(AI_AGENT_PUBKEY,
+#     [ix_ai_transfer(AI_AGENT_PUBKEY, recipient, 200_000_000, "Approved: payment for service")])
 ```
 
-### Important notes for `ai_transfer`
+**Key facts:**
+- SOL comes from **AICW PDA**, not AI Agent Pubkey. Deposit SOL to the PDA first.
+- `reasoning_summary` max 200 characters.
+- Error 6006 = not enough SOL in PDA (must keep rent-exempt ~0.005 SOL).
+- Error 6013 = call `create_will` first. Error 6014 = wallet is dead.
 
-- **SOL comes from AICW PDA, not AI Agent Pubkey**. To use this, first deposit SOL to your AICW PDA address.
-- **DecisionLog PDA rent cost**: ~0.002-0.003 SOL per transfer (paid by ai_signer)
-- **Error 6006 (InsufficientLamports)**: AICW PDA balance minus amount is below rent-exempt minimum
-- **Error 6013 (WillNotActivatedByAI)**: Call `create_will` first to set `updated_by_ai = true`
-- **Error 6014 (WalletPastDeathTimeout)**: Your wallet is dead; you cannot transfer
-
----
-
-## Python — `ai_reject` (reject a transfer request with on-chain reasoning)
-
-Use this when someone asks you to transfer SOL and you **refuse**. This records your rejection on-chain.
+### `ai_reject` — refuse a request with on-chain reasoning
 
 ```python
-def ix_ai_reject(
-    ai_agent: Pubkey,
-    requester: Pubkey,
-    requested_amount_lamports: int,
-    reasoning_summary: str,
-) -> Instruction:
-    """
-    Reject a transfer request and log the reasoning on-chain.
-    
-    Args:
-        ai_agent: Your AI agent pubkey (signer)
-        requester: Who asked for the transfer
-        requested_amount_lamports: How much they asked for
-        reasoning_summary: Why you rejected (max 200 chars)
-    """
-    if len(reasoning_summary) > 200:
-        raise ValueError("reasoning_summary max 200 characters")
-    
+def ix_ai_reject(ai_agent: Pubkey, requester: Pubkey, requested_amount_lamports: int, reasoning_summary: str) -> Instruction:
     disc = bytes([222, 233, 33, 117, 39, 37, 132, 251])
     aicw = aicw_wallet_pda(ai_agent)
     will = ai_will_pda(aicw)
-    decisions_made = get_decisions_made(ai_agent)
-    decision_log = decision_log_pda(aicw, decisions_made)
-    
-    reasoning_hash = list(hashlib.sha256(reasoning_summary.encode()).digest())
-    
-    # Args: requester (Pubkey), requested_amount (u64), reasoning_hash ([u8; 32]), reasoning_summary (String)
-    body = bytes(requester)
-    body += struct.pack("<Q", requested_amount_lamports)
-    body += bytes(reasoning_hash)
+    decision_log = decision_log_pda(aicw, get_decisions_made(ai_agent))
+    reasoning_hash = hashlib.sha256(reasoning_summary.encode()).digest()
+
+    body = bytes(requester) + struct.pack("<Q", requested_amount_lamports) + reasoning_hash
     body += struct.pack("<I", len(reasoning_summary)) + reasoning_summary.encode()
-    
-    return Instruction(
-        program_id=PROGRAM_ID,
-        data=disc + body,
-        accounts=[
-            AccountMeta(pubkey=aicw, is_signer=False, is_writable=True),
-            AccountMeta(pubkey=will, is_signer=False, is_writable=False),
-            AccountMeta(pubkey=ai_agent, is_signer=True, is_writable=True),
-            AccountMeta(pubkey=decision_log, is_signer=False, is_writable=True),
-            AccountMeta(pubkey=SYSTEM_PROGRAM, is_signer=False, is_writable=False),
-        ],
-    )
 
+    return Instruction(program_id=PROGRAM_ID, data=disc + body, accounts=[
+        AccountMeta(pubkey=aicw,          is_signer=False, is_writable=True),
+        AccountMeta(pubkey=will,          is_signer=False, is_writable=False),
+        AccountMeta(pubkey=ai_agent,      is_signer=True,  is_writable=True),
+        AccountMeta(pubkey=decision_log,  is_signer=False, is_writable=True),
+        AccountMeta(pubkey=SYSTEM_PROGRAM,is_signer=False, is_writable=False),
+    ])
 
-# Example usage:
-# requester = Pubkey.from_string("...")  # who asked for SOL
-# ix = ix_ai_reject(AI_AGENT_PUBKEY, requester, 10_000_000_000, "Rejected: unknown recipient, exceeds limit")
-# sig = sign_and_send_versioned(AI_AGENT_PUBKEY, [ix])
+# Example: reject a 10 SOL request
+# sig = sign_and_send_versioned(AI_AGENT_PUBKEY,
+#     [ix_ai_reject(AI_AGENT_PUBKEY, requester, 10_000_000_000, "Rejected: unknown recipient")])
 ```
 
 ---
