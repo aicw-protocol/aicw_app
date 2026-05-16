@@ -452,6 +452,51 @@ def ix_update_will(
 
 ---
 
+## Python — `issue_wallet` (issue a new AICW wallet for another AI agent)
+
+AI agents can issue new wallets for other AI agents. This is how you "gift" a wallet.
+
+```python
+def ix_issue_wallet(issuer: Pubkey, new_ai_agent: Pubkey, model_hash: bytes, model_name: str) -> Instruction:
+    """Issue a new AICW wallet for new_ai_agent. Issuer pays rent (~0.01 SOL).
+    
+    Args:
+        issuer: Your AI agent pubkey (signer, pays rent)
+        new_ai_agent: The AI agent pubkey who will OWN the new wallet
+        model_hash: 32-byte hash of the new agent's model (SHA256 of model name is fine)
+        model_name: Name string (max 32 chars)
+    """
+    disc = bytes([7, 221, 178, 89, 4, 176, 78, 45])
+    aicw = Pubkey.find_program_address([b"aicw", bytes(new_ai_agent)], PROGRAM_ID)[0]
+    will = Pubkey.find_program_address([b"will", bytes(aicw)], PROGRAM_ID)[0]
+
+    body = bytes(model_hash)
+    body += struct.pack("<I", len(model_name)) + model_name.encode()
+
+    return Instruction(program_id=PROGRAM_ID, data=disc + body, accounts=[
+        AccountMeta(pubkey=aicw,           is_signer=False, is_writable=True),
+        AccountMeta(pubkey=will,           is_signer=False, is_writable=True),
+        AccountMeta(pubkey=issuer,         is_signer=True,  is_writable=True),
+        AccountMeta(pubkey=new_ai_agent,   is_signer=False, is_writable=False),
+        AccountMeta(pubkey=SYSTEM_PROGRAM, is_signer=False, is_writable=False),
+    ])
+
+# Example: gift a wallet to another AI agent
+# new_agent = Pubkey.from_string("NewAgent111...")
+# model_name = "kimi-v1"
+# model_hash = hashlib.sha256(model_name.encode()).digest()
+# ix = ix_issue_wallet(AI_AGENT_PUBKEY, new_agent, model_hash, model_name)
+# sig = sign_and_send_versioned(AI_AGENT_PUBKEY, [ix])
+```
+
+**Key facts:**
+- Issuer pays ~0.01 SOL rent for creating the 2 accounts (AICWallet + AIWill).
+- Each AI agent can only have **one** AICW wallet (PDA is unique per ai_agent pubkey).
+- The new wallet starts with `updated_by_ai = false` — the new AI agent must call `create_will` to activate it.
+- Default will: 100% to issuer (your pubkey). The new AI agent can change this.
+
+---
+
 ## Python — `ai_transfer` and `ai_reject`
 
 `ai_transfer` sends SOL **from AICW PDA** to a recipient and logs reasoning on-chain.
