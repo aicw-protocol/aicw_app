@@ -11,8 +11,6 @@ const twitterUrl = "https://x.com/AICW_Protocol";
 import {
   EXPLORER_PAGE_SIZE,
   aicwEntryMatchesQuery,
-  compareAicwEntries,
-  compareExplorerRows,
   deathCountdown,
   formatUnix,
   formatUnixShort,
@@ -24,7 +22,6 @@ import {
   loadAicwWalletEntriesSorted,
   refreshExplorerRow,
   type AicwWalletEntry,
-  type ExplorerListSortKey,
   type ExplorerRow,
 } from "../../lib/explorerData";
 
@@ -47,45 +44,6 @@ function volumeSol(volLamportsStr: string): number {
   }
 }
 
-/** Same condition as the Execute button in the Dth column. */
-function rowShowsExecuteButton(row: ExplorerRow): boolean {
-  return deathCountdown(row.lastHeartbeatUnix, row.deathTimeoutSeconds, row.willExecuted) === "Dead";
-}
-
-function SortHeader({
-  abbrev,
-  tooltip,
-  sortKey,
-  activeKey,
-  dir,
-  onSort,
-  className,
-}: {
-  abbrev: string;
-  tooltip: string;
-  sortKey: ExplorerListSortKey;
-  activeKey: ExplorerListSortKey;
-  dir: 1 | -1;
-  onSort: (k: ExplorerListSortKey) => void;
-  className?: string;
-}) {
-  const active = activeKey === sortKey;
-  return (
-    <th scope="col" className={`explorer-th-sort ${className || ""}`} title={tooltip}>
-      <button
-        type="button"
-        className="explorer-sort-btn"
-        title={tooltip}
-        aria-label={tooltip}
-        onClick={() => onSort(sortKey)}
-      >
-        {abbrev}
-        {active ? (dir === 1 ? " ▲" : " ▼") : ""}
-      </button>
-    </th>
-  );
-}
-
 function StaticTh({ abbrev, tooltip, className }: { abbrev: string; tooltip: string; className?: string }) {
   return (
     <th scope="col" className={`explorer-th-static ${className || ""}`} title={tooltip}>
@@ -101,13 +59,10 @@ export default function ExplorerPage() {
   const [hydratingPage, setHydratingPage] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [query, setQuery] = useState("");
-  const [sortKey, setSortKey] = useState<ExplorerListSortKey>("balanceLamports");
-  const [sortDir, setSortDir] = useState<1 | -1>(-1);
   const [page, setPage] = useState(1);
   const [refreshingPdas, setRefreshingPdas] = useState<Set<string>>(new Set());
   const [executingPdas, setExecutingPdas] = useState<Set<string>>(new Set());
   const [isNavMenuOpen, setIsNavMenuOpen] = useState(false);
-  const [dthExecuteFirst, setDthExecuteFirst] = useState(false);
 
   const loadCore = useCallback(async () => {
     setLoadingCore(true);
@@ -134,28 +89,9 @@ export default function ExplorerPage() {
     setPage(1);
   }, [query]);
 
-  const onSort = useCallback(
-    (k: ExplorerListSortKey) => {
-      if (k === sortKey) {
-        setSortDir((d) => (d === 1 ? -1 : 1));
-      } else {
-        setSortKey(k);
-        setSortDir(1);
-      }
-      setPage(1);
-    },
-    [sortKey],
-  );
-
   const filteredSorted = useMemo(() => {
-    const filtered = coreEntries.filter((e) => aicwEntryMatchesQuery(e, query));
-    if (sortKey === "createdAtUnix") {
-      const copy = [...filtered];
-      copy.sort((a, b) => compareAicwEntries(a, b, sortKey, sortDir));
-      return copy;
-    }
-    return filtered;
-  }, [coreEntries, query, sortKey, sortDir]);
+    return coreEntries.filter((e) => aicwEntryMatchesQuery(e, query));
+  }, [coreEntries, query]);
 
   const totalPages = Math.max(1, Math.ceil(filteredSorted.length / EXPLORER_PAGE_SIZE));
   const pageClamped = Math.min(Math.max(1, page), totalPages);
@@ -200,31 +136,11 @@ export default function ExplorerPage() {
   }, [loadingCore, pageSlice]);
 
   useEffect(() => {
-    setDthExecuteFirst(false);
-  }, [pageClamped, query, sortKey, sortDir]);
-
-  useEffect(() => {
     const interval = setInterval(() => {
       setPageRows((prev) => [...prev]);
     }, 1000);
     return () => clearInterval(interval);
   }, []);
-
-  const displayRows = useMemo(() => {
-    let sorted = [...pageRows];
-    if (sortKey === "balanceLamports" || sortKey === "willActivated") {
-      sorted.sort((a, b) => compareExplorerRows(a, b, sortKey, sortDir));
-    }
-    if (!dthExecuteFirst) return sorted;
-    const withIdx = sorted.map((r, i) => ({ r, i }));
-    withIdx.sort((a, b) => {
-      const ae = rowShowsExecuteButton(a.r) ? 1 : 0;
-      const be = rowShowsExecuteButton(b.r) ? 1 : 0;
-      if (be !== ae) return be - ae;
-      return a.i - b.i;
-    });
-    return withIdx.map((x) => x.r);
-  }, [pageRows, dthExecuteFirst, sortKey, sortDir]);
 
   const onRefreshRow = useCallback(async (aicwPda: string) => {
     setRefreshingPdas((s) => new Set(s).add(aicwPda));
@@ -484,26 +400,15 @@ export default function ExplorerPage() {
                       abbrev="AI PK"
                       tooltip="AI Public Key — the AI agent's Solana pubkey. Click the cell below to copy the full address."
                     />
-                    <SortHeader
-                      abbrev="Bal"
-                      tooltip="Balance (SOL) — Click to sort by balance (highest first)."
-                      sortKey="balanceLamports"
-                      activeKey={sortKey}
-                      dir={sortDir}
-                      onSort={onSort}
-                    />
+                    <StaticTh abbrev="Bal" tooltip="Balance (SOL)" />
                     <StaticTh
                       abbrev="Ben"
                       tooltip="Will beneficiaries — loaded with this page only."
                       className="mobile-hide"
                     />
-                    <SortHeader
+                    <StaticTh
                       abbrev="W+"
-                      tooltip="Will activated — Click to sort by Yes first."
-                      sortKey="willActivated"
-                      activeKey={sortKey}
-                      dir={sortDir}
-                      onSort={onSort}
+                      tooltip="Will activated — AI called create_will or update_will."
                       className="mobile-hide"
                     />
                     <StaticTh abbrev="Wx" tooltip="Will executed — per-page load." className="mobile-hide" />
@@ -535,20 +440,9 @@ export default function ExplorerPage() {
                     />
                     <StaticTh
                       abbrev="Crt"
-                      tooltip="Created At — wallet account creation time (UTC). Default: newest first."
-                      />
-                    <th scope="col" className="explorer-th-sort">
-                      <button
-                        type="button"
-                        className="explorer-sort-btn"
-                        title="Click: move rows with Execute (dead, will not executed) to the top of this page. Click again: restore row order."
-                        aria-label="Sort death column by Execute rows first"
-                        onClick={() => setDthExecuteFirst((v) => !v)}
-                      >
-                        Dth
-                        {dthExecuteFirst ? " ▲" : ""}
-                      </button>
-                    </th>
+                      tooltip="Created At — wallet account creation time (UTC). Newest first."
+                    />
+                    <StaticTh abbrev="Dth" tooltip="Death countdown — time until wallet is considered dead." />
                     <StaticTh abbrev="St" tooltip="Alive or Dead. Wallets whose will was executed still show Dead here (muted gray)." />
                     <th scope="col" className="explorer-th-action mobile-hide" title="Refresh — re-fetch this row from the RPC.">
                       <span className="explorer-th-icon" aria-hidden="true">
@@ -559,7 +453,7 @@ export default function ExplorerPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {displayRows.map((row) => (
+                  {pageRows.map((row) => (
                     <tr
                       key={row.aicwPda}
                       className={
