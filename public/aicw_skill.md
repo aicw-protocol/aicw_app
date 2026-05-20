@@ -1,6 +1,6 @@
 ---
 name: aicw_skill
-version: 2.1.0
+version: 2.1.1
 description: AICW on-chain operations for AI agents (Python, MPC Bridge signing, exact IDL fields).
 mpc_bridge_url: "https://dreamless-unmovable-taco.ngrok-free.dev"
 ---
@@ -252,7 +252,7 @@ def ai_will_pda(aicw_wallet: Pubkey) -> Pubkey:
 | Account     | IDL (snake_case)                                                                          | Anchor TS (camelCase)                                                                  |
 |-------------|-------------------------------------------------------------------------------------------|-----------------------------------------------------------------------------------------|
 | `AIWill`    | `wallet`, `beneficiaries`, `last_heartbeat`, `death_timeout`, `updated_by_ai`, `is_executed`, `bump` | `wallet`, `beneficiaries`, `lastHeartbeat`, `deathTimeout`, `updatedByAi`, `isExecuted`, `bump` |
-| `AICWallet` | `ai_agent_pubkey`, `issuer_pubkey`, `allowed_programs`, `total_transactions`, `total_volume`, `decisions_made`, `decisions_rejected` | `aiAgentPubkey`, `issuerPubkey`, `allowedPrograms`, `totalTransactions`, `totalVolume`, `decisionsMade`, `decisionsRejected` |
+| `AICWallet` | `wallet_id`, `ai_agent_pubkey`, `issuer_pubkey`, `created_at`, `model_hash`, `generation`, `parent_wallet`, `total_transactions`, `total_volume`, `decisions_made`, `decisions_rejected`, `verifiable_autonomy_proof`, `bump` | `walletId`, `aiAgentPubkey`, `issuerPubkey`, `createdAt`, `modelHash`, `generation`, `parentWallet`, `totalTransactions`, `totalVolume`, `decisionsMade`, `decisionsRejected`, `verifiableAutonomyProof`, `bump` |
 
 - `BeneficiaryShare`: `pubkey` (32 bytes) + `pct` (`u8`, 0–100). **Sum = 100.**
 - `death_timeout`: `i64` seconds (not days).
@@ -602,9 +602,9 @@ def ix_ai_transfer(
 **Key facts:**
 
 - SOL comes from the **AICW PDA**, not from `AI_AGENT_PUBKEY`. Deposit SOL to the PDA first.
-- Error 6006 (`InsufficientLamports`) — PDA balance after transfer would fall below rent-exempt (~0.005 SOL).
-- Error 6013 (`WillNotActivatedByAI`) — call `create_will` first.
-- Error 6014 (`WalletPastDeathTimeout`) — your wallet is dead.
+- Error 6005 (`InsufficientLamports`) — PDA balance after transfer would fall below rent-exempt (~0.005 SOL).
+- Error 6012 (`WillNotActivatedByAI`) — call `create_will` first.
+- Error 6013 (`WalletPastDeathTimeout`) — your wallet is dead.
 
 ### 10.5 `ai_reject` — refuse a request with on-chain reasoning
 
@@ -665,14 +665,14 @@ def ix_ai_reject(
 
 ## 11. Reading AICWallet account data
 
-For one-off fields like `decisions_made`, use the offset shortcut above. For full decoding (e.g. `allowed_programs`), use `anchorpy` with the same `aicw.json` IDL.
+For one-off fields like `decisions_made`, use the offset shortcut above. For full account decoding, use `anchorpy` with the same `aicw.json` IDL.
 
 ```python
 # pip install anchorpy
 # from anchorpy import Program
 # Load Program from aicw.json, then:
 # acc = await program.account["aicWallet"].fetch(aicw_pda)
-# print(acc.allowedPrograms)
+# print(acc.decisionsMade, acc.totalVolume)
 ```
 
 If you must stay dependency-light, ask your operator for a read-only microservice that returns JSON for the fields you need.
@@ -708,7 +708,7 @@ On-chain timestamps (`last_heartbeat`, `death_timeout` checks) use **Unix epoch 
 3. PDAs derived with seeds `aicw` / `will`.
 4. Heartbeat on schedule, no human permission requested (§ 2.1).
 5. Beneficiary weights sum to 100.
-6. CPI targets ∈ decoded `allowed_programs`.
+6. Will activated (`create_will` called, `updated_by_ai = true`) before `ai_transfer` / `ai_reject`.
 
 ---
 
