@@ -890,76 +890,71 @@
     },
     {
       "code": 6001,
-      "name": "ProgramNotAllowed",
-      "msg": "Target program not in allowed list."
-    },
-    {
-      "code": 6002,
       "name": "IdentityNotRegistered",
       "msg": "AI identity not registered."
     },
     {
-      "code": 6003,
+      "code": 6002,
       "name": "InsufficientReputation",
       "msg": "Insufficient reputation score for this operation."
     },
     {
-      "code": 6004,
+      "code": 6003,
       "name": "ModelNameTooLong",
       "msg": "Model name exceeds maximum length."
     },
     {
-      "code": 6005,
+      "code": 6004,
       "name": "ReasoningSummaryTooLong",
       "msg": "Reasoning summary exceeds maximum length."
     },
     {
-      "code": 6006,
+      "code": 6005,
       "name": "InsufficientLamports",
       "msg": "Insufficient lamports for transfer (including rent-exempt minimum)."
     },
     {
-      "code": 6007,
+      "code": 6006,
       "name": "BeneficiaryRatioInvalid",
       "msg": "Beneficiary share percents must sum to 100 (1-10 beneficiaries)."
     },
     {
-      "code": 6008,
+      "code": 6007,
       "name": "HeartbeatStillAlive",
       "msg": "Will cannot execute yet: heartbeat within death timeout window."
     },
     {
-      "code": 6009,
+      "code": 6008,
       "name": "WillAlreadyExecuted",
       "msg": "Will has already been executed."
     },
     {
-      "code": 6010,
+      "code": 6009,
       "name": "WillWalletMismatch",
       "msg": "AIWill wallet field does not match this AICW wallet."
     },
     {
-      "code": 6011,
+      "code": 6010,
       "name": "BeneficiaryAccountMismatch",
       "msg": "Remaining accounts must match beneficiaries in order and be writable."
     },
     {
-      "code": 6012,
+      "code": 6011,
       "name": "InvalidWillParameters",
       "msg": "heartbeat_interval and death_timeout must be positive."
     },
     {
-      "code": 6013,
+      "code": 6012,
       "name": "WillNotActivatedByAI",
       "msg": "AI must activate the will before this operation."
     },
     {
-      "code": 6014,
+      "code": 6013,
       "name": "WalletPastDeathTimeout",
       "msg": "AICW wallet is past its death timeout."
     },
     {
-      "code": 6015,
+      "code": 6014,
       "name": "ArithmeticOverflow",
       "msg": "Arithmetic overflow in counter or lamport balance update."
     }
@@ -1008,12 +1003,6 @@
             "name": "parent_wallet",
             "type": {
               "option": "pubkey"
-            }
-          },
-          {
-            "name": "allowed_programs",
-            "type": {
-              "vec": "pubkey"
             }
           },
           {
