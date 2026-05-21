@@ -200,7 +200,7 @@ a {
   padding: 22px 16px 18px;
   border-radius: 14px;
   border: 1px solid var(--border);
-  background: var(--panel-2);
+  background: #141924;
 }
 
 .issue-ecosystem-title {
