@@ -24,12 +24,12 @@ Installer saves these in **`%USERPROFILE%\.aicw\`** (e.g. `C:\Users\you\.aicw\`)
 
 ## Claude Desktop
 
-1. Installer: type **`skip`** at mcp.json.
+1. When installer asks **`Path to MCP client mcp.json`** → type **`skip`** (you are not using Cursor).
 2. Open **`%APPDATA%\Claude\claude_desktop_config.json`** → copy **`aicw`** from **`mcp-aicw-full.json`** into **`mcpServers`** → restart Claude.
 
 ## OpenClaw
 
-1. Installer: type **`skip`** at mcp.json.
+1. When installer asks **`Path to MCP client mcp.json`** → type **`skip`** (you are not using Cursor).
 2. Open **PowerShell** and run (copy-paste this whole line):
 
 ```powershell
@@ -42,17 +42,17 @@ openclaw mcp set aicw (Get-Content "$env:USERPROFILE\.aicw\mcp-aicw-server.json"
 
 ## Windsurf
 
-1. Installer: type **`skip`**.
+1. When installer asks **`Path to MCP client mcp.json`** → type **`skip`** (not Cursor).
 2. Settings → **MCP** → add server from **`mcp-aicw-full.json`** (or merge into **`~/.codeium/windsurf/mcp_config.json`**) → reload.
 
 ## VS Code (Cline)
 
-1. Installer: type **`skip`**.
+1. When installer asks **`Path to MCP client mcp.json`** → type **`skip`** (not Cursor).
 2. Cline → **MCP Servers** → paste **`aicw`** block from **`mcp-aicw-full.json`**.
 
 ## Anything else
 
-1. Installer: type **`skip`**.
+1. When installer asks **`Path to MCP client mcp.json`** → type **`skip`** (not Cursor).
 2. Tell your AI: *"Register the MCP server in **`~/.aicw/mcp-aicw-full.json`** for [app name]."*
 
 ---

@@ -148,7 +148,7 @@ export default function AgentSetupPage() {
           <article className="guide-app-card">
             <h3>Cursor</h3>
             <ol>
-              <li>Installer: press Enter at mcp.json.</li>
+              <li>When asked mcp.json path → press <strong>Enter</strong> (Cursor default).</li>
               <li>
                 <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>J</kbd> → MCP → <strong>aicw</strong> ON.
               </li>
@@ -157,7 +157,10 @@ export default function AgentSetupPage() {
           <article className="guide-app-card">
             <h3>Claude Desktop</h3>
             <ol>
-              <li>Installer: type <code className="guide-code">skip</code>.</li>
+              <li>
+                When asked <code className="guide-code">Path to MCP client mcp.json</code> → type{" "}
+                <code className="guide-code">skip</code> (not Cursor).
+              </li>
               <li>
                 Merge <code className="guide-code">aicw</code> from{" "}
                 <code className="guide-code">mcp-aicw-full.json</code> into{" "}
@@ -168,7 +171,10 @@ export default function AgentSetupPage() {
           <article className="guide-app-card">
             <h3>OpenClaw</h3>
             <ol>
-              <li>Installer: type <code className="guide-code">skip</code>.</li>
+              <li>
+                When asked <code className="guide-code">Path to MCP client mcp.json</code> → type{" "}
+                <code className="guide-code">skip</code> (not Cursor).
+              </li>
               <li>
                 PowerShell:{" "}
                 <code className="guide-code guide-code-block">
@@ -181,21 +187,30 @@ export default function AgentSetupPage() {
           <article className="guide-app-card">
             <h3>Windsurf</h3>
             <ol>
-              <li>Installer: type <code className="guide-code">skip</code>.</li>
+              <li>
+                When asked <code className="guide-code">Path to MCP client mcp.json</code> → type{" "}
+                <code className="guide-code">skip</code> (not Cursor).
+              </li>
               <li>Settings → MCP → add from <code className="guide-code">mcp-aicw-full.json</code>.</li>
             </ol>
           </article>
           <article className="guide-app-card">
             <h3>VS Code (Cline)</h3>
             <ol>
-              <li>Installer: type <code className="guide-code">skip</code>.</li>
+              <li>
+                When asked <code className="guide-code">Path to MCP client mcp.json</code> → type{" "}
+                <code className="guide-code">skip</code> (not Cursor).
+              </li>
               <li>Cline → MCP Servers → paste <code className="guide-code">aicw</code> block.</li>
             </ol>
           </article>
           <article className="guide-app-card">
             <h3>Other</h3>
             <ol>
-              <li>Installer: type <code className="guide-code">skip</code>.</li>
+              <li>
+                When asked <code className="guide-code">Path to MCP client mcp.json</code> → type{" "}
+                <code className="guide-code">skip</code> (not Cursor).
+              </li>
               <li>
                 Tell your AI: register MCP from{" "}
                 <code className="guide-code">~/.aicw/mcp-aicw-full.json</code>.
