@@ -117,39 +117,90 @@ export default function AgentSetupPage() {
       </div>
 
       <section className="section guide-section">
-        <h2>Restart MCP (Track B)</h2>
-        <div className="guide-table-wrap">
-          <table className="guide-table">
-            <thead>
-              <tr>
-                <th>Runtime</th>
-                <th>What to do</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                <td>Cursor</td>
-                <td>
-                  <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>J</kbd> → Tools &amp; MCP → toggle{" "}
-                  <strong>aicw</strong> off → on
-                </td>
-              </tr>
-              <tr>
-                <td>Claude Desktop</td>
-                <td>Quit fully → reopen. Config: <code className="guide-code">%APPDATA%\Claude\claude_desktop_config.json</code></td>
-              </tr>
-              <tr>
-                <td>Other</td>
-                <td>
-                  Import <code className="guide-code">%USERPROFILE%\.aicw\mcp-aicw-full.json</code> into your
-                  client&apos;s MCP settings and reload.
-                </td>
-              </tr>
-            </tbody>
-          </table>
+        <h2>MCP by app (Track B)</h2>
+        <p className="guide-track-desc guide-section-lead">
+          Install once, then one short step per app.{" "}
+          <strong>Too hard?</strong> Use Track A — no MCP.
+        </p>
+
+        <div className="guide-common-box">
+          <strong>Everyone first</strong>
+          <ol className="guide-common-steps">
+            <li>
+              <Link href={issueHref}>Issue wallet</Link> → Copy
+            </li>
+            <li>
+              <a href={AICW_MCP_DOWNLOAD_URL} target="_blank" rel="noopener noreferrer">
+                Download zip
+              </a>{" "}
+              → <code className="guide-code">install-aicw-mcp.bat</code> → paste Copy
+            </li>
+          </ol>
+          <p className="muted guide-footnote guide-common-foot">
+            Creates <code className="guide-code">%USERPROFILE%\.aicw\mcp-aicw-full.json</code>
+          </p>
         </div>
+
+        <div className="guide-app-grid">
+          <article className="guide-app-card">
+            <h3>Cursor</h3>
+            <ol>
+              <li>Installer: press Enter at mcp.json.</li>
+              <li>
+                <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>J</kbd> → MCP → <strong>aicw</strong> ON.
+              </li>
+            </ol>
+          </article>
+          <article className="guide-app-card">
+            <h3>Claude Desktop</h3>
+            <ol>
+              <li>Installer: type <code className="guide-code">skip</code>.</li>
+              <li>
+                Merge <code className="guide-code">aicw</code> from{" "}
+                <code className="guide-code">mcp-aicw-full.json</code> into{" "}
+                <code className="guide-code">claude_desktop_config.json</code> → restart.
+              </li>
+            </ol>
+          </article>
+          <article className="guide-app-card">
+            <h3>OpenClaw</h3>
+            <ol>
+              <li>Installer: type <code className="guide-code">skip</code>.</li>
+              <li>
+                <code className="guide-code">openclaw mcp set aicw</code> + paste{" "}
+                <code className="guide-code">mcp-aicw-server.json</code> → restart.
+              </li>
+            </ol>
+          </article>
+          <article className="guide-app-card">
+            <h3>Windsurf</h3>
+            <ol>
+              <li>Installer: type <code className="guide-code">skip</code>.</li>
+              <li>Settings → MCP → add from <code className="guide-code">mcp-aicw-full.json</code>.</li>
+            </ol>
+          </article>
+          <article className="guide-app-card">
+            <h3>VS Code (Cline)</h3>
+            <ol>
+              <li>Installer: type <code className="guide-code">skip</code>.</li>
+              <li>Cline → MCP Servers → paste <code className="guide-code">aicw</code> block.</li>
+            </ol>
+          </article>
+          <article className="guide-app-card">
+            <h3>Other</h3>
+            <ol>
+              <li>Installer: type <code className="guide-code">skip</code>.</li>
+              <li>
+                Tell your AI: register MCP from{" "}
+                <code className="guide-code">~/.aicw/mcp-aicw-full.json</code>.
+              </li>
+            </ol>
+          </article>
+        </div>
+
         <p className="muted guide-footnote">
-          New wallet later? Run the installer again with the new Copy, then restart MCP.
+          Check: agent runs <code className="guide-code">aicw_bridge_health</code> →{" "}
+          <code className="guide-code">ok: true</code>. New wallet? Re-run installer, reload MCP.
         </p>
       </section>
 
