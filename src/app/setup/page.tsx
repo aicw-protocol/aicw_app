@@ -137,7 +137,10 @@ export default function AgentSetupPage() {
             </li>
           </ol>
           <p className="muted guide-footnote guide-common-foot">
-            Creates <code className="guide-code">%USERPROFILE%\.aicw\mcp-aicw-full.json</code>
+            Creates in <code className="guide-code">%USERPROFILE%\.aicw\</code>:{" "}
+            <code className="guide-code">aicw_mcp.env</code>,{" "}
+            <code className="guide-code">mcp-aicw-full.json</code>,{" "}
+            <code className="guide-code">mcp-aicw-server.json</code>
           </p>
         </div>
 
@@ -167,9 +170,12 @@ export default function AgentSetupPage() {
             <ol>
               <li>Installer: type <code className="guide-code">skip</code>.</li>
               <li>
-                <code className="guide-code">openclaw mcp set aicw</code> + paste{" "}
-                <code className="guide-code">mcp-aicw-server.json</code> → restart.
+                PowerShell:{" "}
+                <code className="guide-code guide-code-block">
+                  openclaw mcp set aicw (Get-Content &quot;$env:USERPROFILE\.aicw\mcp-aicw-server.json&quot; -Raw)
+                </code>
               </li>
+              <li>Restart OpenClaw → ask agent <code className="guide-code">aicw_bridge_health</code>.</li>
             </ol>
           </article>
           <article className="guide-app-card">

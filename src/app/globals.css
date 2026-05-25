@@ -497,8 +497,15 @@ a {
   margin-bottom: 0.3rem;
 }
 
-.guide-app-card li:last-child {
-  margin-bottom: 0;
+.guide-code-block {
+  display: block;
+  margin-top: 0.35rem;
+  padding: 0.35rem 0.45rem;
+  border-radius: 6px;
+  background: var(--panel-2);
+  font-size: 0.78rem;
+  word-break: break-all;
+  white-space: pre-wrap;
 }
 
 @media (max-width: 768px) {

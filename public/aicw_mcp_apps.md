@@ -7,7 +7,13 @@
 1. [Issue wallet](https://aicw-protocol.github.io/aicw_app/) → **Copy**
 2. [Download zip](https://aicw-protocol.github.io/aicw_app/aicw_mcp-release.zip) → run **`install-aicw-mcp.bat`** → paste Copy
 
-Installer saves **`%USERPROFILE%\.aicw\mcp-aicw-full.json`**. You only connect your app to that file.
+Installer saves these in **`%USERPROFILE%\.aicw\`** (e.g. `C:\Users\you\.aicw\`):
+
+| File | Use |
+|------|-----|
+| `aicw_mcp.env` | Wallet credentials (auto-loaded) |
+| `mcp-aicw-full.json` | Cursor, Claude, Windsurf — paste into app MCP settings |
+| `mcp-aicw-server.json` | OpenClaw only — one PowerShell command below |
 
 ---
 
@@ -23,8 +29,16 @@ Installer saves **`%USERPROFILE%\.aicw\mcp-aicw-full.json`**. You only connect y
 
 ## OpenClaw
 
-1. Installer: type **`skip`**.
-2. Terminal: **`openclaw mcp set aicw`** + paste **`mcp-aicw-server.json`** → restart Gateway.
+1. Installer: type **`skip`** at mcp.json.
+2. Open **PowerShell** and run (copy-paste this whole line):
+
+```powershell
+openclaw mcp set aicw (Get-Content "$env:USERPROFILE\.aicw\mcp-aicw-server.json" -Raw)
+```
+
+3. Restart OpenClaw.
+
+**Where is the file?** `C:\Users\YOUR_NAME\.aicw\mcp-aicw-server.json` — created by `install-aicw-mcp.bat`. You do **not** open or paste the file by hand; the command reads it for you.
 
 ## Windsurf
 
