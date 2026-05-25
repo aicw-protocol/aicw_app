@@ -20,11 +20,7 @@ import {
   isMpcBridgeConfigured,
 } from "../lib/mpcAgentPubkey";
 import { AppNav } from "../components/AppNav";
-import {
-  AICW_MCP_DOWNLOAD_URL,
-  AICW_SETUP_PAGE_URL,
-  AICW_SKILL_MD_URL,
-} from "../lib/publicUrls";
+import { AICW_SKILL_MD_URL } from "../lib/publicUrls";
 
 const ISSUER_HANDOFF_DOCS_URL =
   process.env.NEXT_PUBLIC_ISSUER_HANDOFF_DOCS_URL?.trim() ?? "";
@@ -284,20 +280,14 @@ export default function AicwIssuerPage() {
     if (!issueSuccess) return;
     const mpcId = issueSuccess.mpcWalletId.trim();
     const bridgeUrl = getMpcBridgeBaseUrl();
-    const payload = `# AICW credentials (use Track A or Track B — see setup guide)
+    const payload = `# AICW credentials — give your agent these values + aicw_skill.md
 MPC_WALLET_ID=${mpcId}
 AI_AGENT_PUBKEY=${issueSuccess.aiPubkey}
 MPC_BRIDGE_URL=${bridgeUrl}
 MPC_SOLANA_NETWORK=${DEFAULT_MPC_NETWORK}
 
 # MPC_WALLET_ID = private key. Never log, share, or paste in chat.
-#
-# Track A (skill): give agent these values + aicw_skill.md
-#   ${AICW_SKILL_MD_URL}
-#
-# Track B (MCP): download zip, run install-aicw-mcp.bat, paste this block, restart MCP
-#   ${AICW_MCP_DOWNLOAD_URL}
-#   Setup: ${AICW_SETUP_PAGE_URL}
+# Skill doc: ${AICW_SKILL_MD_URL}
 `;
     try {
       await navigator.clipboard.writeText(payload);
@@ -918,21 +908,11 @@ MPC_SOLANA_NETWORK=${DEFAULT_MPC_NETWORK}
             <h3 className="modal-title">Issuance succeeded</h3>
 
             <p className="modal-success-notice">
-              Choose how your AI agent connects — both start from these credentials.
-              MPC wallet ID is a private key; keep it secret.
-            </p>
-            <p className="muted" style={{ fontSize: 12, marginTop: 0, marginBottom: 10 }}>
-              <strong>Track A:</strong>{" "}
+              Give your agent these credentials and{" "}
               <a href={AICW_SKILL_MD_URL} target="_blank" rel="noreferrer">
                 aicw_skill.md
               </a>
-              {" · "}
-              <strong>Track B:</strong>{" "}
-              <a href={AICW_MCP_DOWNLOAD_URL} target="_blank" rel="noreferrer">
-                aicw_mcp zip
-              </a>
-              {" · "}
-              <Link href="/setup">setup guide</Link>
+              . MPC wallet ID is a private key; keep it secret.
             </p>
 
             <div className="modal-success-field">
@@ -945,14 +925,14 @@ MPC_SOLANA_NETWORK=${DEFAULT_MPC_NETWORK}
             </div>
 
             <p className="muted" style={{ fontSize: 12, marginTop: 10, marginBottom: 0, wordBreak: "break-all" }}>
-              Copy includes credentials + links to both tracks (see setup guide).
+              Copy includes credentials and the skill doc link.
             </p>
 
             <button
               type="button"
               onClick={() => void copySuccessBundle()}
               className="btn modal-copy-btn"
-              title="Copies credentials and Track A / Track B links"
+              title="Copies credentials and skill doc link"
             >
               <i className={`fa-solid ${successCopied ? "fa-check" : "fa-copy"}`} style={{ marginRight: 6 }} />
               {successCopied ? "Copied" : "Copy credentials"}

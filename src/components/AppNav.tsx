@@ -2,8 +2,6 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useCallback, useEffect, useRef, useState } from "react";
-import { appBasePath } from "../lib/appBasePath";
 import { AICW_SKILL_MD_URL } from "../lib/publicUrls";
 
 interface AppNavProps {
@@ -13,27 +11,8 @@ interface AppNavProps {
 
 export function AppNav({ isMenuOpen, onMenuToggle }: AppNavProps) {
   const pathname = usePathname();
-  const [isDocsOpen, setIsDocsOpen] = useState(false);
-  const docsRef = useRef<HTMLDivElement>(null);
 
-  const skillHref = AICW_SKILL_MD_URL;
-  const setupHref = `${appBasePath()}/setup`;
-
-  const closeAll = useCallback(() => {
-    setIsDocsOpen(false);
-    onMenuToggle(false);
-  }, [onMenuToggle]);
-
-  useEffect(() => {
-    if (!isDocsOpen) return;
-    const onPointerDown = (e: MouseEvent) => {
-      if (docsRef.current && !docsRef.current.contains(e.target as Node)) {
-        setIsDocsOpen(false);
-      }
-    };
-    document.addEventListener("mousedown", onPointerDown);
-    return () => document.removeEventListener("mousedown", onPointerDown);
-  }, [isDocsOpen]);
+  const closeAll = () => onMenuToggle(false);
 
   return (
     <>
@@ -54,47 +33,16 @@ export function AppNav({ isMenuOpen, onMenuToggle }: AppNavProps) {
         >
           Explorer
         </Link>
-        <div className="nav-menu-dropdown" ref={docsRef}>
-          <button
-            type="button"
-            className="nav-menu-link nav-menu-dropdown-trigger"
-            aria-expanded={isDocsOpen}
-            aria-haspopup="menu"
-            onClick={() => setIsDocsOpen((open) => !open)}
-          >
-            Agent Setup
-            <i
-              className={`fa-solid fa-chevron-down nav-menu-dropdown-chevron${isDocsOpen ? " nav-menu-dropdown-chevron--open" : ""}`}
-              aria-hidden="true"
-            />
-          </button>
-          {isDocsOpen && (
-            <div className="nav-menu-dropdown-panel" role="menu" aria-label="Agent setup documents">
-              <a
-                href={skillHref}
-                className="nav-menu-dropdown-item"
-                role="menuitem"
-                target="_blank"
-                rel="noopener noreferrer"
-                title="Track A — skill document (Python + MPC bridge)"
-                onClick={closeAll}
-              >
-                <span className="nav-menu-dropdown-track">Track A</span>
-                aicw_skill.md
-              </a>
-              <a
-                href={setupHref}
-                className="nav-menu-dropdown-item"
-                role="menuitem"
-                title="Human setup guide (Track A + B)"
-                onClick={closeAll}
-              >
-                <span className="nav-menu-dropdown-track">Track A &amp; B</span>
-                Agent Setup page
-              </a>
-            </div>
-          )}
-        </div>
+        <a
+          href={AICW_SKILL_MD_URL}
+          className="nav-menu-link"
+          target="_blank"
+          rel="noopener noreferrer"
+          title="Agent skill document (Python + MPC bridge)"
+          onClick={closeAll}
+        >
+          Agent Skill
+        </a>
       </nav>
 
       {isMenuOpen && (

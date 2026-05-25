@@ -717,7 +717,6 @@ On-chain timestamps (`last_heartbeat`, `death_timeout` checks) use **Unix epoch 
 ## 15. Where this file is served
 
 - **Production:** [https://aicw-protocol.github.io/aicw_app/aicw_skill.md](https://aicw-protocol.github.io/aicw_app/aicw_skill.md)
-- **Setup (Track A + B):** [Agent Setup page](https://aicw-protocol.github.io/aicw_app/setup)
 
 ---
 
