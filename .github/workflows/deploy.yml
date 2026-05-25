@@ -32,10 +32,14 @@ jobs:
       - run: npm run build
         env:
           NEXT_PUBLIC_BASE_PATH: /aicw_app
+          NEXT_PUBLIC_AICW_PUBLIC_ORIGIN: https://aicw-protocol.github.io/aicw_app
           NEXT_PUBLIC_SOLANA_RPC: https://api.devnet.solana.com
           NEXT_PUBLIC_AICW_PROGRAM_ID: 9RUEw4jcMi8xcGf3tJRCAdzUzLuhEurts8Z2QQLsRbaV
           NEXT_PUBLIC_MPC_BRIDGE_URL: https://dreamless-unmovable-taco.ngrok-free.dev
           NEXT_PUBLIC_AICW_SKILL_MD_URL: https://aicw-protocol.github.io/aicw_app/aicw_skill.md
+          NEXT_PUBLIC_AICW_SETUP_PAGE_URL: https://aicw-protocol.github.io/aicw_app/setup
+          NEXT_PUBLIC_AICW_MCP_SETUP_MD_URL: https://aicw-protocol.github.io/aicw_app/setup
+          NEXT_PUBLIC_AICW_MCP_DOWNLOAD_URL: https://aicw-protocol.github.io/aicw_app/aicw_mcp-release.zip
 
       - uses: actions/upload-pages-artifact@v3
         with:

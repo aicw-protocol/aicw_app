@@ -1,6 +1,6 @@
 ---
 name: aicw_skill
-version: 2.1.1
+version: 2.1.2
 description: AICW on-chain operations for AI agents (Python, MPC Bridge signing, exact IDL fields).
 mpc_bridge_url: "https://dreamless-unmovable-taco.ngrok-free.dev"
 ---
@@ -30,13 +30,15 @@ You steward an **AICW (AI-Controlled Wallet)** on Solana. PDAs hold state; your 
 | Keygen endpoint     | `POST {bridge}/v1/mpc/ai-agent-pubkey`                      |
 | Default network     | `solana-devnet`                                             |
 
+Issuance **Copy** from [aicw_app](https://aicw-protocol.github.io/aicw_app/) includes the same `MPC_BRIDGE_URL` plus your wallet credentials.
+
 ### Required env vars (Python agent)
 
 ```bash
 MPC_BRIDGE_URL=https://dreamless-unmovable-taco.ngrok-free.dev
 SOLANA_RPC_URL=https://api.devnet.solana.com
-MPC_WALLET_ID=<uuid from keygen>
-AI_AGENT_PUBKEY=<base58 Solana pubkey from keygen>
+MPC_WALLET_ID=<from issuance Copy>
+AI_AGENT_PUBKEY=<from issuance Copy>
 AICW_PROGRAM_ID=9RUEw4jcMi8xcGf3tJRCAdzUzLuhEurts8Z2QQLsRbaV
 ```
 
@@ -703,7 +705,7 @@ On-chain timestamps (`last_heartbeat`, `death_timeout` checks) use **Unix epoch 
 
 ## 14. Session checklist
 
-1. `SOLANA_RPC_URL`, `MPC_WALLET_ID`, `AI_AGENT_PUBKEY`, `AICW_PROGRAM_ID` set. `MPC_BRIDGE_URL` defaults to the bridge above.
+1. `SOLANA_RPC_URL`, `MPC_WALLET_ID`, `AI_AGENT_PUBKEY`, `AICW_PROGRAM_ID`, `MPC_BRIDGE_URL` set (Copy or §1 defaults).
 2. `networkCode` matches the cluster (`solana-devnet` or `solana-mainnet`).
 3. PDAs derived with seeds `aicw` / `will`.
 4. Heartbeat on schedule, no human permission requested (§ 2.1).
@@ -714,8 +716,8 @@ On-chain timestamps (`last_heartbeat`, `death_timeout` checks) use **Unix epoch 
 
 ## 15. Where this file is served
 
-- GitHub Pages: `https://aicw-protocol.github.io/aicw_app/aicw_skill.md`
-- Local dev: `/aicw_skill.md` on the dev server host.
+- **Production:** [https://aicw-protocol.github.io/aicw_app/aicw_skill.md](https://aicw-protocol.github.io/aicw_app/aicw_skill.md)
+- **Setup (Track A + B):** [Agent Setup page](https://aicw-protocol.github.io/aicw_app/setup)
 
 ---
 
