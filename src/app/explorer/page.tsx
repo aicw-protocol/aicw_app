@@ -74,7 +74,7 @@ export default function ExplorerPage() {
   const [executingPdas, setExecutingPdas] = useState<Set<string>>(new Set());
   const [isNavMenuOpen, setIsNavMenuOpen] = useState(false);
 
-  const loadCore = useCallback(async () => {
+  const loadCore = useCallback(async (): Promise<boolean> => {
     setLoadingCore(true);
     setError(null);
     setCoreEntries([]);
@@ -83,13 +83,21 @@ export default function ExplorerPage() {
       const data = await loadAicwWalletEntriesSorted();
       setCoreEntries(data);
       setPage(1);
+      return true;
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to load wallets");
       toast.error("Failed to load wallet list");
+      return false;
     } finally {
       setLoadingCore(false);
     }
   }, []);
+
+  const onRefreshAll = useCallback(async () => {
+    regionFetchStarted.current.clear();
+    const ok = await loadCore();
+    if (ok) toast.success("Explorer refreshed");
+  }, [loadCore]);
 
   useEffect(() => {
     void loadCore();
@@ -387,7 +395,7 @@ export default function ExplorerPage() {
       </header>
 
       <section className="hero">
-        <h1>Explorer</h1>
+        <h1>AICW Explorer</h1>
         <p>
           Read-only overview of issued AI agent wallets: issuance records, balances, wills,
           heartbeats, and on-chain activity in one place.
@@ -399,15 +407,25 @@ export default function ExplorerPage() {
           <label className="explorer-search-label" htmlFor="explorer-q">
             Search
           </label>
-          <input
-            id="explorer-q"
-            type="search"
-            className="explorer-search-input"
-            placeholder="AI key, issuer, PDA, tx counts, volume, created unix…"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            autoComplete="off"
-          />
+          <div className="explorer-search-field">
+            <input
+              id="explorer-q"
+              type="search"
+              className="explorer-search-input"
+              placeholder="AI key, issuer, PDA, tx counts, volume, created unix…"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              autoComplete="off"
+            />
+            <button
+              type="button"
+              className="explorer-refresh-all-btn"
+              disabled={loadingCore}
+              onClick={() => void onRefreshAll()}
+            >
+              Refresh
+            </button>
+          </div>
         </div>
         {error ? <p className="explorer-error">{error}</p> : null}
         {!loadingCore && !error ? (

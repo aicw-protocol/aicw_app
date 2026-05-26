@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Explorer | AICW",
+  title: "AICW Explorer | AICW",
   description: "Browse issued AICW wallets on-chain",
 };
 

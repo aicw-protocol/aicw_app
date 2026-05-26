@@ -31,7 +31,7 @@ export function AppNav({ isMenuOpen, onMenuToggle }: AppNavProps) {
           aria-current={pathname === "/explorer" ? "page" : undefined}
           onClick={closeAll}
         >
-          Explorer
+          AICW Explorer
         </Link>
         <a
           href={AICW_SKILL_MD_URL}
