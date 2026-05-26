@@ -279,15 +279,10 @@ export default function AicwIssuerPage() {
   const copySuccessBundle = useCallback(async () => {
     if (!issueSuccess) return;
     const mpcId = issueSuccess.mpcWalletId.trim();
-    const bridgeUrl = getMpcBridgeBaseUrl();
-    const payload = `# AICW credentials — give your agent these values + aicw_skill.md
-MPC_WALLET_ID=${mpcId}
-AI_AGENT_PUBKEY=${issueSuccess.aiPubkey}
-MPC_BRIDGE_URL=${bridgeUrl}
-MPC_SOLANA_NETWORK=${DEFAULT_MPC_NETWORK}
+    const payload = `AI PUBLIC KEY : ${issueSuccess.aiPubkey}
+MPC wallet ID : ${mpcId}
 
-# MPC_WALLET_ID = private key. Never log, share, or paste in chat.
-# Skill doc: ${AICW_SKILL_MD_URL}
+Read ${AICW_SKILL_MD_URL}
 `;
     try {
       await navigator.clipboard.writeText(payload);
@@ -908,11 +903,8 @@ MPC_SOLANA_NETWORK=${DEFAULT_MPC_NETWORK}
             <h3 className="modal-title">Issuance succeeded</h3>
 
             <p className="modal-success-notice">
-              Give your agent these credentials and{" "}
-              <a href={AICW_SKILL_MD_URL} target="_blank" rel="noreferrer">
-                aicw_skill.md
-              </a>
-              . MPC wallet ID is a private key; keep it secret.
+              Pass the AI public key and MPC wallet ID below to your AI agent. They are required
+              for the agent to use this wallet.
             </p>
 
             <div className="modal-success-field">
@@ -925,17 +917,17 @@ MPC_SOLANA_NETWORK=${DEFAULT_MPC_NETWORK}
             </div>
 
             <p className="muted" style={{ fontSize: 12, marginTop: 10, marginBottom: 0, wordBreak: "break-all" }}>
-              Copy includes credentials and the skill doc link.
+              Clipboard will include: <strong>Read {AICW_SKILL_MD_URL}</strong>
             </p>
 
             <button
               type="button"
               onClick={() => void copySuccessBundle()}
               className="btn modal-copy-btn"
-              title="Copies credentials and skill doc link"
+              title={`Copies keys and: Read ${AICW_SKILL_MD_URL}`}
             >
               <i className={`fa-solid ${successCopied ? "fa-check" : "fa-copy"}`} style={{ marginRight: 6 }} />
-              {successCopied ? "Copied" : "Copy credentials"}
+              {successCopied ? "Copied" : "Copy (+ Read skill)"}
             </button>
 
             <button
