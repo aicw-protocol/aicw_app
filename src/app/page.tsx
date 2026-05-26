@@ -5,6 +5,11 @@ import toast from "react-hot-toast";
 import Link from "next/link";
 import dynamic from "next/dynamic";
 import { Connection, PublicKey, SystemProgram, SendTransactionError, VersionedTransaction, TransactionMessage } from "@solana/web3.js";
+import {
+  buildRegionMemoInstruction,
+  cacheIssuerRegion,
+  fetchVisitorCountryCode,
+} from "../lib/issuerRegions";
 import { AnchorProvider, Program, type Idl } from "@coral-xyz/anchor";
 import { useWallet } from "@solana/wallet-adapter-react";
 import { useConnection } from "@solana/wallet-adapter-react";
@@ -384,6 +389,8 @@ Read ${AICW_SKILL_MD_URL}
       return;
     }
 
+    let issuerCountryCode: string | null = null;
+
     try {
       const walletAdapter = {
         publicKey,
@@ -409,6 +416,7 @@ Read ${AICW_SKILL_MD_URL}
 
       const modelName = `aicw:${pk.slice(0, 32)}`;
       const modelHash = await sha256ModelHash(modelName);
+      issuerCountryCode = await fetchVisitorCountryCode();
 
       const tx = await program.methods
         .issueWallet(modelHash, modelName)
@@ -420,6 +428,10 @@ Read ${AICW_SKILL_MD_URL}
           systemProgram: SystemProgram.programId,
         })
         .transaction();
+
+      if (issuerCountryCode) {
+        tx.add(buildRegionMemoInstruction(publicKey, issuerCountryCode));
+      }
 
       const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash("confirmed");
       tx.recentBlockhash = blockhash;
@@ -512,6 +524,10 @@ Read ${AICW_SKILL_MD_URL}
         lastValidBlockHeight,
       }, "confirmed");
 
+      if (issuerCountryCode) {
+        cacheIssuerRegion(aicwWalletPda.toBase58(), issuerCountryCode);
+      }
+
       setIssueSuccess({
         txSig,
         aiPubkey: pk,
@@ -531,6 +547,7 @@ Read ${AICW_SKILL_MD_URL}
         issuer: publicKey.toBase58(),
         aiAgentPubkey: aiAgentPk.toBase58(),
         aicwWalletPda: aicwWalletPda.toBase58(),
+        issuerCountryCode,
       });
     } catch (err: unknown) {
       toast.dismiss(loadingToast);
@@ -543,6 +560,9 @@ Read ${AICW_SKILL_MD_URL}
           });
           const recoveredSig = sigs[0]?.signature;
           if (recoveredSig) {
+            if (issuerCountryCode) {
+              cacheIssuerRegion(aicwWalletPda.toBase58(), issuerCountryCode);
+            }
             setIssueSuccess({
               txSig: recoveredSig,
               aiPubkey: pk,

@@ -824,6 +824,21 @@ a {
   cursor: not-allowed;
 }
 
+.explorer-reg {
+  text-align: center;
+  vertical-align: middle;
+  white-space: nowrap;
+}
+
+.explorer-reg-flag {
+  display: inline-block;
+  width: 17px;
+  height: 13px;
+  object-fit: cover;
+  border-radius: 2px;
+  vertical-align: middle;
+}
+
 .explorer-sort-btn {
   background: none;
   border: none;

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import toast from "react-hot-toast";
 import Link from "next/link";
 import { Connection, PublicKey, TransactionInstruction, TransactionMessage, VersionedTransaction } from "@solana/web3.js";
@@ -24,6 +24,14 @@ import {
   type AicwWalletEntry,
   type ExplorerRow,
 } from "../../lib/explorerData";
+import {
+  cacheIssuerRegion,
+  countryCodeToFlagImageUrl,
+  countryDisplayName,
+  fetchIssuerRegionFromChain,
+  loadStaticIssuerRegions,
+  readCachedIssuerRegions,
+} from "../../lib/issuerRegions";
 
 const SOLANA_RPC = process.env.NEXT_PUBLIC_SOLANA_RPC || "https://api.devnet.solana.com";
 const AICW_PROGRAM_ID = new PublicKey(
@@ -61,6 +69,8 @@ export default function ExplorerPage() {
   const [query, setQuery] = useState("");
   const [page, setPage] = useState(1);
   const [refreshingPdas, setRefreshingPdas] = useState<Set<string>>(new Set());
+  const [issuerRegions, setIssuerRegions] = useState<Record<string, string>>({});
+  const regionFetchStarted = useRef<Set<string>>(new Set());
   const [executingPdas, setExecutingPdas] = useState<Set<string>>(new Set());
   const [isNavMenuOpen, setIsNavMenuOpen] = useState(false);
 
@@ -134,6 +144,53 @@ export default function ExplorerPage() {
       cancelled = true;
     };
   }, [loadingCore, pageSlice]);
+
+  useEffect(() => {
+    let cancelled = false;
+    void loadStaticIssuerRegions().then((staticMap) => {
+      if (cancelled) return;
+      setIssuerRegions((prev) => ({ ...staticMap, ...readCachedIssuerRegions(), ...prev }));
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!pageRows.length) return;
+    let cancelled = false;
+    const connection = new Connection(SOLANA_RPC, "confirmed");
+    const cachedAll = readCachedIssuerRegions();
+
+    void (async () => {
+      const staticMap = await loadStaticIssuerRegions();
+      if (cancelled) return;
+
+      for (const row of pageRows) {
+        if (cancelled) return;
+        if (regionFetchStarted.current.has(row.aicwPda)) continue;
+
+        const known = cachedAll[row.aicwPda] ?? staticMap[row.aicwPda];
+        if (known) {
+          regionFetchStarted.current.add(row.aicwPda);
+          setIssuerRegions((prev) =>
+            prev[row.aicwPda] ? prev : { ...prev, [row.aicwPda]: known },
+          );
+          continue;
+        }
+
+        regionFetchStarted.current.add(row.aicwPda);
+        const code = await fetchIssuerRegionFromChain(connection, row.aicwPda);
+        if (cancelled || !code) continue;
+        cacheIssuerRegion(row.aicwPda, code);
+        setIssuerRegions((prev) => ({ ...prev, [row.aicwPda]: code }));
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [pageRows]);
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -444,6 +501,10 @@ export default function ExplorerPage() {
                     />
                     <StaticTh abbrev="Dth" tooltip="Death countdown — time until wallet is considered dead." />
                     <StaticTh abbrev="St" tooltip="Alive or Dead. Wallets whose will was executed still show Dead here (muted gray)." />
+                    <StaticTh
+                      abbrev="Reg"
+                      tooltip="Issuer region — country flag recorded when the wallet was issued."
+                    />
                     <th scope="col" className="explorer-th-action mobile-hide" title="Refresh — re-fetch this row from the RPC.">
                       <span className="explorer-th-icon" aria-hidden="true">
                         <i className="fa-solid fa-arrows-rotate" />
@@ -551,6 +612,24 @@ export default function ExplorerPage() {
                             <span className={`explorer-badge explorer-badge--${row.status.toLowerCase()}`}>
                               {row.status}
                             </span>
+                          );
+                        })()}
+                      </td>
+                      <td className="explorer-reg" title={countryDisplayName(issuerRegions[row.aicwPda])}>
+                        {(() => {
+                          const code = issuerRegions[row.aicwPda];
+                          const flagSrc = countryCodeToFlagImageUrl(code);
+                          if (!flagSrc) return "—";
+                          return (
+                            <img
+                              className="explorer-reg-flag"
+                              src={flagSrc}
+                              alt={countryDisplayName(code)}
+                              width={17}
+                              height={13}
+                              loading="lazy"
+                              decoding="async"
+                            />
                           );
                         })()}
                       </td>
