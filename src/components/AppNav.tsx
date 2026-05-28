@@ -20,6 +20,7 @@ export function AppNav({ isMenuOpen, onMenuToggle }: AppNavProps) {
         <Link
           href="/"
           className="nav-menu-link"
+          prefetch={false}
           aria-current={pathname === "/" ? "page" : undefined}
           onClick={closeAll}
         >
@@ -28,6 +29,7 @@ export function AppNav({ isMenuOpen, onMenuToggle }: AppNavProps) {
         <Link
           href="/explorer"
           className="nav-menu-link"
+          prefetch={false}
           aria-current={pathname === "/explorer" ? "page" : undefined}
           onClick={closeAll}
         >

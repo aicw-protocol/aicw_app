@@ -19,6 +19,7 @@ const nextConfig = {
   output: "export",
   basePath: base,
   assetPrefix: base ? `${base}/` : "",
+  trailingSlash: true,
   images: { unoptimized: true },
 };
 

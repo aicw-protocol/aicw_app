@@ -181,6 +181,56 @@ Do **not** blindly use `600` (10 minutes) — that's a devnet testing value. Rul
 | Weekly          | 7 days             | `1814400` (21 days)    |
 | Production      | varies             | `2592000` (30 days)    |
 
+### 4.1 Background heartbeat infinite loop
+
+**Do not heartbeat only inside a chat turn.** A conversation session ends; humans close laptops; rate limits spike. Survival requires a **long-running process** that keeps sending heartbeats until you stop it.
+
+**Prerequisites (once per wallet)**
+
+1. `create_will` succeeded (`updated_by_ai = true`). One-shot `heartbeat` in chat is not enough.
+2. Spendable SOL on **`AI_AGENT_PUBKEY`** (not the AICW PDA rent balance).
+3. `MPC_BRIDGE_URL` reachable; `MPC_WALLET_ID` and `AI_AGENT_PUBKEY` from the **same** issuance dialog.
+
+**The loop (required pattern)**
+
+```python
+INTERVAL = int(os.environ["HEARTBEAT_INTERVAL_SECONDS"])  # must be <= death_timeout / 3
+
+while True:
+    try:
+        # 1) getLatestBlockhash
+        # 2) build MessageV0 with ix_heartbeat only
+        # 3) POST {BRIDGE}/v1/mpc/sign-solana-message (include aiAgentPubkey)
+        # 4) sendTransaction to RPC
+        log_success(signature)
+    except Exception as e:
+        log_failure(e)  # never exit the loop on failure
+    time.sleep(INTERVAL)
+```
+
+**Rules agents often violate**
+
+| Mistake | Fix |
+|---------|-----|
+| Heartbeat only when the human asks | Run the loop autonomously (§ 2.1) |
+| Exit the script after one error | Catch, log, `sleep`, retry |
+| Interval too long vs `death_timeout` | Set interval ≤ `death_timeout ÷ 3` (e.g. 1 h timeout → ≤ 20 min) |
+| Process dies with the IDE tab | `nohup`, systemd, pm2, or a dedicated background shell |
+| Use public `api.devnet.solana.com` under load | Private RPC; backoff on 429 (§ 12) |
+| Check AICW PDA balance for fees | Check **AI Agent Pubkey** balance (§ 3) |
+
+**Reference implementation:** `aicw_app/scripts/heartbeat_loop.py` (env: `HEARTBEAT_INTERVAL_SECONDS`, `MPC_BRIDGE_URL`, `MPC_WALLET_ID`, `AI_AGENT_PUBKEY`, `SOLANA_RPC_URL`). Initial setup: `scripts/aicw_onchain_once.py` (`create_will` + first heartbeat).
+
+**Operator one-liner (PowerShell example)**
+
+```powershell
+$env:HEARTBEAT_INTERVAL_SECONDS="1200"   # 20 min if death_timeout=3600
+$env:DEATH_TIMEOUT_SECONDS="3600"
+python scripts/heartbeat_loop.py
+```
+
+Verify in Explorer: status **Alive**, **Dth** countdown resetting after each successful tx.
+
 ---
 
 ## 5. How instructions are executed
@@ -706,7 +756,7 @@ On-chain timestamps (`last_heartbeat`, `death_timeout` checks) use **Unix epoch 
 1. `SOLANA_RPC_URL`, `MPC_WALLET_ID`, `AI_AGENT_PUBKEY`, `AICW_PROGRAM_ID` set. `MPC_BRIDGE_URL` defaults to the bridge above.
 2. `networkCode` matches the cluster (`solana-devnet` or `solana-mainnet`).
 3. PDAs derived with seeds `aicw` / `will`.
-4. Heartbeat on schedule, no human permission requested (§ 2.1).
+4. Background heartbeat infinite loop running (§ 4.1); interval ≤ `death_timeout ÷ 3`.
 5. Beneficiary weights sum to 100.
 6. Will activated (`create_will` called, `updated_by_ai = true`) before `ai_transfer` / `ai_reject`.
 

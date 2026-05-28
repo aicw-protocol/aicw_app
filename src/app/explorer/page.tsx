@@ -34,6 +34,9 @@ import {
 } from "../../lib/issuerRegions";
 
 const SOLANA_RPC = process.env.NEXT_PUBLIC_SOLANA_RPC || "https://api.devnet.solana.com";
+/** Chain region scans are heavy; use build-time issuer-regions.json instead. */
+const FETCH_REGION_FROM_CHAIN =
+  process.env.NEXT_PUBLIC_FETCH_REGION_FROM_CHAIN === "true";
 const AICW_PROGRAM_ID = new PublicKey(
   process.env.NEXT_PUBLIC_AICW_PROGRAM_ID || "9RUEw4jcMi8xcGf3tJRCAdzUzLuhEurts8Z2QQLsRbaV"
 );
@@ -70,6 +73,7 @@ export default function ExplorerPage() {
   const [page, setPage] = useState(1);
   const [refreshingPdas, setRefreshingPdas] = useState<Set<string>>(new Set());
   const [issuerRegions, setIssuerRegions] = useState<Record<string, string>>({});
+  const [countdownTick, setCountdownTick] = useState(0);
   const regionFetchStarted = useRef<Set<string>>(new Set());
   const [executingPdas, setExecutingPdas] = useState<Set<string>>(new Set());
   const [isNavMenuOpen, setIsNavMenuOpen] = useState(false);
@@ -167,27 +171,32 @@ export default function ExplorerPage() {
   useEffect(() => {
     if (!pageRows.length) return;
     let cancelled = false;
-    const connection = new Connection(SOLANA_RPC, "confirmed");
     const cachedAll = readCachedIssuerRegions();
 
     void (async () => {
       const staticMap = await loadStaticIssuerRegions();
       if (cancelled) return;
 
+      const merged: Record<string, string> = { ...cachedAll, ...staticMap };
+      for (const row of pageRows) {
+        const known = merged[row.aicwPda];
+        if (known) merged[row.aicwPda] = known;
+      }
+      setIssuerRegions((prev) => ({ ...merged, ...prev }));
+
+      if (!FETCH_REGION_FROM_CHAIN) return;
+
+      const connection = new Connection(SOLANA_RPC, "confirmed");
       for (const row of pageRows) {
         if (cancelled) return;
         if (regionFetchStarted.current.has(row.aicwPda)) continue;
-
-        const known = cachedAll[row.aicwPda] ?? staticMap[row.aicwPda];
-        if (known) {
+        if (merged[row.aicwPda]) {
           regionFetchStarted.current.add(row.aicwPda);
-          setIssuerRegions((prev) =>
-            prev[row.aicwPda] ? prev : { ...prev, [row.aicwPda]: known },
-          );
           continue;
         }
 
         regionFetchStarted.current.add(row.aicwPda);
+        await new Promise((r) => setTimeout(r, 400));
         const code = await fetchIssuerRegionFromChain(connection, row.aicwPda);
         if (cancelled || !code) continue;
         cacheIssuerRegion(row.aicwPda, code);
@@ -202,7 +211,7 @@ export default function ExplorerPage() {
 
   useEffect(() => {
     const interval = setInterval(() => {
-      setPageRows((prev) => [...prev]);
+      setCountdownTick((t) => t + 1);
     }, 1000);
     return () => clearInterval(interval);
   }, []);
@@ -597,6 +606,7 @@ export default function ExplorerPage() {
                       </td>
                       <td className="explorer-num">
                         {(() => {
+                          void countdownTick;
                           const dth = deathCountdown(row.lastHeartbeatUnix, row.deathTimeoutSeconds, row.willExecuted);
                           if (dth === "Dead" && (row.willActivated || row.status !== "Dead")) {
                             return (
@@ -616,6 +626,7 @@ export default function ExplorerPage() {
                       </td>
                       <td>
                         {(() => {
+                          void countdownTick;
                           const dth = deathCountdown(row.lastHeartbeatUnix, row.deathTimeoutSeconds, row.willExecuted);
                           if (row.willExecuted) {
                             return <span className="explorer-badge explorer-badge--dead-executed">Dead</span>;
