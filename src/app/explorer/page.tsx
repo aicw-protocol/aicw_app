@@ -157,7 +157,7 @@ export default function ExplorerPage() {
     let cancelled = false;
     void loadStaticIssuerRegions().then((staticMap) => {
       if (cancelled) return;
-      setIssuerRegions((prev) => ({ ...staticMap, ...readCachedIssuerRegions(), ...prev }));
+      setIssuerRegions((prev) => ({ ...readCachedIssuerRegions(), ...staticMap, ...prev }));
     });
     return () => {
       cancelled = true;
@@ -371,7 +371,7 @@ export default function ExplorerPage() {
       <header className="top-nav">
         <div className="top-nav-inner">
           <div className="top-nav-left">
-            <Link href="/" className="brand brand-link">
+            <Link href="/" className="brand brand-link" prefetch={false}>
               <div className="brand-title">
                 AICW <span className="brand-chain">ON SOLANA</span>
               </div>

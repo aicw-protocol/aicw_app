@@ -8,6 +8,7 @@ import { Connection, PublicKey, SystemProgram, SendTransactionError, VersionedTr
 import {
   buildRegionMemoInstruction,
   cacheIssuerRegion,
+  persistIssuerRegionShared,
   fetchVisitorCountryCode,
 } from "../lib/issuerRegions";
 import { AnchorProvider, Program, type Idl } from "@coral-xyz/anchor";
@@ -525,7 +526,9 @@ Read ${AICW_SKILL_MD_URL}
       }, "confirmed");
 
       if (issuerCountryCode) {
-        cacheIssuerRegion(aicwWalletPda.toBase58(), issuerCountryCode);
+        const pda = aicwWalletPda.toBase58();
+        cacheIssuerRegion(pda, issuerCountryCode);
+        void persistIssuerRegionShared(pda, issuerCountryCode);
       }
 
       setIssueSuccess({
@@ -561,7 +564,9 @@ Read ${AICW_SKILL_MD_URL}
           const recoveredSig = sigs[0]?.signature;
           if (recoveredSig) {
             if (issuerCountryCode) {
-              cacheIssuerRegion(aicwWalletPda.toBase58(), issuerCountryCode);
+              const pda = aicwWalletPda.toBase58();
+              cacheIssuerRegion(pda, issuerCountryCode);
+              void persistIssuerRegionShared(pda, issuerCountryCode);
             }
             setIssueSuccess({
               txSig: recoveredSig,
@@ -613,7 +618,7 @@ Read ${AICW_SKILL_MD_URL}
       <header className="top-nav">
         <div className="top-nav-inner">
           <div className="top-nav-left">
-            <Link href="/" className="brand brand-link">
+            <Link href="/" className="brand brand-link" prefetch={false}>
               <div className="brand-title">
                 AICW <span className="brand-chain">ON SOLANA</span>
               </div>
@@ -733,7 +738,7 @@ Read ${AICW_SKILL_MD_URL}
         {aicwExistsOnChain === true ? (
           <p className="muted" style={{ marginBottom: 12 }}>
             This AI public key already has a wallet here. Use a different MPC identity, or open{" "}
-            <Link href="/explorer">Explorer</Link> to inspect it.
+            <Link href="/explorer" prefetch={false}>Explorer</Link> to inspect it.
           </p>
         ) : null}
         <button

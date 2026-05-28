@@ -166,42 +166,70 @@ export async function fetchVisitorCountryCode(): Promise<string | null> {
   return null;
 }
 
+function scanMemoInstructions(
+  list: (ParsedInstruction | PartiallyDecodedInstruction)[],
+): string | null {
+  for (const ix of list) {
+    if (ix.programId.equals(memoProgramId())) {
+      const code = parseRegionFromInstruction(ix);
+      if (code) return code;
+    }
+  }
+  return null;
+}
+
 export async function fetchIssuerRegionFromChain(
   connection: Connection,
   aicwPda: string,
 ): Promise<string | null> {
   const pk = new PublicKey(aicwPda);
-  const sigs = await connection.getSignaturesForAddress(pk, { limit: 1000 });
+  const sigs = await connection.getSignaturesForAddress(pk, { limit: 100 });
   if (!sigs.length) return null;
 
-  const oldest = sigs[sigs.length - 1]?.signature;
-  if (!oldest) return null;
+  const ordered = [...sigs].reverse();
+  const maxScan = Math.min(ordered.length, 8);
 
-  const tx = await connection.getParsedTransaction(oldest, {
-    maxSupportedTransactionVersion: 0,
-    commitment: "confirmed",
-  });
-  if (!tx) return null;
+  for (let i = 0; i < maxScan; i++) {
+    const signature = ordered[i]?.signature;
+    if (!signature) continue;
 
-  const scan = (
-    list: (ParsedInstruction | PartiallyDecodedInstruction)[],
-  ): string | null => {
-    for (const ix of list) {
-      if (ix.programId.equals(memoProgramId())) {
-        const code = parseRegionFromInstruction(ix);
-        if (code) return code;
-      }
+    const tx = await connection.getParsedTransaction(signature, {
+      maxSupportedTransactionVersion: 0,
+      commitment: "confirmed",
+    });
+    if (!tx) continue;
+
+    const top = scanMemoInstructions(tx.transaction.message.instructions);
+    if (top) return top;
+
+    for (const inner of tx.meta?.innerInstructions ?? []) {
+      const code = scanMemoInstructions(inner.instructions);
+      if (code) return code;
     }
-    return null;
-  };
-
-  const top = scan(tx.transaction.message.instructions);
-  if (top) return top;
-
-  for (const inner of tx.meta?.innerInstructions ?? []) {
-    const code = scan(inner.instructions);
-    if (code) return code;
   }
 
   return null;
+}
+
+/** Register region for shared Explorer JSON (static hosting has no write API). */
+export async function persistIssuerRegionShared(
+  aicwPda: string,
+  countryCode: string,
+): Promise<void> {
+  cacheIssuerRegion(aicwPda, countryCode);
+  const code = countryCode.toUpperCase().slice(0, 2);
+  if (!isIsoCountryCode(code)) return;
+
+  const base = process.env.NEXT_PUBLIC_ISSUER_REGIONS_REGISTER_URL?.replace(/\/$/, "");
+  if (!base) return;
+
+  try {
+    await fetch(base, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ aicwPda, countryCode: code }),
+    });
+  } catch {
+    /* optional external registry */
+  }
 }
