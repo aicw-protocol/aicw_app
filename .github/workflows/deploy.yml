@@ -31,6 +31,7 @@ jobs:
 
       - run: npm run build
         env:
+          NEXT_STATIC_BASE_PATH: /aicw_app
           NEXT_PUBLIC_BASE_PATH: /aicw_app
           NEXT_PUBLIC_AICW_PUBLIC_ORIGIN: https://aicw-protocol.github.io/aicw_app
           NEXT_PUBLIC_SOLANA_RPC: https://api.devnet.solana.com

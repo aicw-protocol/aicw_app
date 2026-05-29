@@ -6,6 +6,5 @@
 export function appBasePath(): string {
   const v = process.env.NEXT_PUBLIC_BASE_PATH;
   if (v !== undefined) return v;
-  if (process.env.NODE_ENV === "production") return "/aicw_app";
   return "";
 }
