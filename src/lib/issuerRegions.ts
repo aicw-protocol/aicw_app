@@ -118,6 +118,40 @@ export function cacheIssuerRegion(aicwPda: string, countryCode: string): void {
   window.localStorage.setItem(ISSUER_REGIONS_STORAGE_KEY, JSON.stringify(prev));
 }
 
+function mpcBridgeBase(): string {
+  return (process.env.NEXT_PUBLIC_MPC_BRIDGE_URL || "").trim().replace(/\/$/, "");
+}
+
+/** Central registry on MPC Bridge (all browsers / machines). */
+export async function loadBridgeIssuerRegions(): Promise<Record<string, string>> {
+  const base = mpcBridgeBase();
+  if (!base) return {};
+  try {
+    const res = await fetch(`${base}/v1/mpc/issuer-regions`, { cache: "no-store" });
+    if (!res.ok) return {};
+    const json = (await res.json()) as { regions?: Record<string, string> };
+    const parsed = json.regions ?? {};
+    const out: Record<string, string> = {};
+    for (const [pda, code] of Object.entries(parsed)) {
+      if (isIsoCountryCode(String(code).toUpperCase())) {
+        out[pda] = String(code).toUpperCase();
+      }
+    }
+    return out;
+  } catch {
+    return {};
+  }
+}
+
+/** Static JSON (build-time index) + Bridge registry. */
+export async function loadAllSharedIssuerRegions(): Promise<Record<string, string>> {
+  const [staticMap, bridgeMap] = await Promise.all([
+    loadStaticIssuerRegions(),
+    loadBridgeIssuerRegions(),
+  ]);
+  return { ...staticMap, ...bridgeMap };
+}
+
 export async function loadStaticIssuerRegions(): Promise<Record<string, string>> {
   if (typeof window === "undefined") return {};
   try {
@@ -211,25 +245,26 @@ export async function fetchIssuerRegionFromChain(
   return null;
 }
 
-/** Register region for shared Explorer JSON (static hosting has no write API). */
+/** Register PDA→country on MPC Bridge so every Explorer client sees the flag. */
 export async function persistIssuerRegionShared(
   aicwPda: string,
   countryCode: string,
-): Promise<void> {
+): Promise<boolean> {
   cacheIssuerRegion(aicwPda, countryCode);
   const code = countryCode.toUpperCase().slice(0, 2);
-  if (!isIsoCountryCode(code)) return;
+  if (!isIsoCountryCode(code)) return false;
 
-  const base = process.env.NEXT_PUBLIC_ISSUER_REGIONS_REGISTER_URL?.replace(/\/$/, "");
-  if (!base) return;
+  const base = mpcBridgeBase();
+  if (!base) return false;
 
   try {
-    await fetch(base, {
+    const res = await fetch(`${base}/v1/mpc/issuer-regions`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ aicwPda, countryCode: code }),
     });
+    return res.ok;
   } catch {
-    /* optional external registry */
+    return false;
   }
 }

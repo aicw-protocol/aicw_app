@@ -528,7 +528,10 @@ Read ${AICW_SKILL_MD_URL}
       if (issuerCountryCode) {
         const pda = aicwWalletPda.toBase58();
         cacheIssuerRegion(pda, issuerCountryCode);
-        void persistIssuerRegionShared(pda, issuerCountryCode);
+        const registered = await persistIssuerRegionShared(pda, issuerCountryCode);
+        if (!registered) {
+          console.warn("[AICW] issuer region not registered on MPC Bridge — Reg may show — on Explorer");
+        }
       }
 
       setIssueSuccess({

@@ -72,6 +72,22 @@ async function lamportsByPubkeyBatched(
 
 export type WillStatus = "Alive" | "Dead" | "Executed";
 
+/** Per-transfer fee reserve used by MPC Bridge execute-will (lamports). */
+export const EXECUTE_WILL_TX_FEE_LAMPORTS = 5000;
+
+/** Minimum AI Agent Pubkey balance to fund execute-will (matches mpc-bridge: balance > 5000 × beneficiaries). */
+export function executeWillFeeLamports(row: Pick<ExplorerRow, "willBeneficiaries">): number {
+  const n = Math.max(1, row.willBeneficiaries.length);
+  return EXECUTE_WILL_TX_FEE_LAMPORTS * n;
+}
+
+export function canFundExecuteWill(
+  row: Pick<ExplorerRow, "balanceLamports" | "willBeneficiaries">,
+): boolean {
+  if (!row.willBeneficiaries.length) return false;
+  return row.balanceLamports > executeWillFeeLamports(row);
+}
+
 export interface ExplorerRow {
   /** AICW PDA */
   aicwPda: string;
@@ -417,6 +433,20 @@ export function formatNumberShort(numStr: string): string {
 export function deathTimeoutDays(seconds: number): string {
   if (seconds <= 0) return "—";
   return (seconds / 86400).toFixed(2);
+}
+
+/** Live status from row snapshot + browser clock (recomputed every UI tick). */
+export function computeLiveWillStatus(
+  lastHeartbeatUnix: number | null,
+  deathTimeoutSeconds: number,
+  willExecuted: boolean,
+): WillStatus {
+  if (willExecuted) return "Executed";
+  if (lastHeartbeatUnix == null || lastHeartbeatUnix <= 0) return "Alive";
+  if (deathTimeoutSeconds <= 0) return "Alive";
+  const now = Math.floor(Date.now() / 1000);
+  if (now > lastHeartbeatUnix + deathTimeoutSeconds) return "Dead";
+  return "Alive";
 }
 
 export function deathCountdown(

@@ -21,22 +21,20 @@ import {
   lamportsToSol,
   loadAicwWalletEntriesSorted,
   refreshExplorerRow,
+  canFundExecuteWill,
+  computeLiveWillStatus,
+  executeWillFeeLamports,
   type AicwWalletEntry,
   type ExplorerRow,
 } from "../../lib/explorerData";
 import {
-  cacheIssuerRegion,
   countryCodeToFlagImageUrl,
   countryDisplayName,
-  fetchIssuerRegionFromChain,
-  loadStaticIssuerRegions,
+  loadAllSharedIssuerRegions,
   readCachedIssuerRegions,
 } from "../../lib/issuerRegions";
 
 const SOLANA_RPC = process.env.NEXT_PUBLIC_SOLANA_RPC || "https://api.devnet.solana.com";
-/** Chain region scans are heavy; use build-time issuer-regions.json instead. */
-const FETCH_REGION_FROM_CHAIN =
-  process.env.NEXT_PUBLIC_FETCH_REGION_FROM_CHAIN === "true";
 const AICW_PROGRAM_ID = new PublicKey(
   process.env.NEXT_PUBLIC_AICW_PROGRAM_ID || "9RUEw4jcMi8xcGf3tJRCAdzUzLuhEurts8Z2QQLsRbaV"
 );
@@ -45,6 +43,38 @@ const EXECUTE_WILL_DISCRIMINATOR = Buffer.from([167, 64, 178, 63, 233, 123, 165,
 function shortPk(s: string): string {
   if (s.length <= 12) return s;
   return `${s.slice(0, 4)}…${s.slice(-4)}`;
+}
+
+const MPC_BRIDGE_HEADERS: HeadersInit = {
+  "Content-Type": "application/json",
+};
+
+async function parseMpcBridgeResponse(response: Response): Promise<{
+  ok: boolean;
+  status: number;
+  data: Record<string, unknown>;
+  message: string;
+}> {
+  const text = (await response.text()).trim();
+  if (!text) {
+    return {
+      ok: response.ok,
+      status: response.status,
+      data: {},
+      message: response.ok ? "" : `HTTP ${response.status}`,
+    };
+  }
+  try {
+    const data = JSON.parse(text) as Record<string, unknown>;
+    const message =
+      (typeof data.message === "string" && data.message) ||
+      (typeof data.error === "string" && data.error) ||
+      (typeof data.detail === "string" && data.detail) ||
+      text;
+    return { ok: response.ok, status: response.status, data, message };
+  } catch {
+    return { ok: response.ok, status: response.status, data: {}, message: text };
+  }
 }
 
 function volumeSol(volLamportsStr: string): number {
@@ -74,9 +104,10 @@ export default function ExplorerPage() {
   const [refreshingPdas, setRefreshingPdas] = useState<Set<string>>(new Set());
   const [issuerRegions, setIssuerRegions] = useState<Record<string, string>>({});
   const [countdownTick, setCountdownTick] = useState(0);
-  const regionFetchStarted = useRef<Set<string>>(new Set());
   const [executingPdas, setExecutingPdas] = useState<Set<string>>(new Set());
   const [isNavMenuOpen, setIsNavMenuOpen] = useState(false);
+  const pageRowsRef = useRef(pageRows);
+  pageRowsRef.current = pageRows;
 
   const loadCore = useCallback(async (): Promise<boolean> => {
     setLoadingCore(true);
@@ -97,11 +128,18 @@ export default function ExplorerPage() {
     }
   }, []);
 
+  const reloadIssuerRegions = useCallback(async () => {
+    const shared = await loadAllSharedIssuerRegions();
+    setIssuerRegions((prev) => ({ ...readCachedIssuerRegions(), ...shared, ...prev }));
+  }, []);
+
   const onRefreshAll = useCallback(async () => {
-    regionFetchStarted.current.clear();
     const ok = await loadCore();
-    if (ok) toast.success("Explorer refreshed");
-  }, [loadCore]);
+    if (ok) {
+      await reloadIssuerRegions();
+      toast.success("Explorer refreshed");
+    }
+  }, [loadCore, reloadIssuerRegions]);
 
   useEffect(() => {
     void loadCore();
@@ -158,62 +196,36 @@ export default function ExplorerPage() {
   }, [loadingCore, pageSlice]);
 
   useEffect(() => {
-    let cancelled = false;
-    void loadStaticIssuerRegions().then((staticMap) => {
-      if (cancelled) return;
-      setIssuerRegions((prev) => ({ ...readCachedIssuerRegions(), ...staticMap, ...prev }));
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  useEffect(() => {
-    if (!pageRows.length) return;
-    let cancelled = false;
-    const cachedAll = readCachedIssuerRegions();
-
-    void (async () => {
-      const staticMap = await loadStaticIssuerRegions();
-      if (cancelled) return;
-
-      const merged: Record<string, string> = { ...cachedAll, ...staticMap };
-      for (const row of pageRows) {
-        const known = merged[row.aicwPda];
-        if (known) merged[row.aicwPda] = known;
-      }
-      setIssuerRegions((prev) => ({ ...merged, ...prev }));
-
-      if (!FETCH_REGION_FROM_CHAIN) return;
-
-      const connection = new Connection(SOLANA_RPC, "confirmed");
-      for (const row of pageRows) {
-        if (cancelled) return;
-        if (regionFetchStarted.current.has(row.aicwPda)) continue;
-        if (merged[row.aicwPda]) {
-          regionFetchStarted.current.add(row.aicwPda);
-          continue;
-        }
-
-        regionFetchStarted.current.add(row.aicwPda);
-        await new Promise((r) => setTimeout(r, 400));
-        const code = await fetchIssuerRegionFromChain(connection, row.aicwPda);
-        if (cancelled || !code) continue;
-        cacheIssuerRegion(row.aicwPda, code);
-        setIssuerRegions((prev) => ({ ...prev, [row.aicwPda]: code }));
-      }
-    })();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [pageRows]);
+    void reloadIssuerRegions();
+  }, [reloadIssuerRegions]);
 
   useEffect(() => {
     const interval = setInterval(() => {
       setCountdownTick((t) => t + 1);
     }, 1000);
     return () => clearInterval(interval);
+  }, []);
+
+  /** Re-fetch AIWill heartbeat from RPC so live countdown matches chain (avoids stale "Dead"). */
+  useEffect(() => {
+    const refreshVisibleHeartbeats = async () => {
+      const rows = pageRowsRef.current;
+      if (!rows.length) return;
+      const updates = await Promise.all(
+        rows.map((r) => refreshExplorerRow(r.aicwPda)),
+      );
+      const byPda = new Map(
+        updates
+          .filter((u): u is ExplorerRow => u != null)
+          .map((u) => [u.aicwPda, u]),
+      );
+      if (byPda.size === 0) return;
+      setPageRows((prev) => prev.map((r) => byPda.get(r.aicwPda) ?? r));
+    };
+    const id = setInterval(() => {
+      void refreshVisibleHeartbeats();
+    }, 60_000);
+    return () => clearInterval(id);
   }, []);
 
   const onRefreshRow = useCallback(async (aicwPda: string) => {
@@ -270,26 +282,26 @@ export default function ExplorerPage() {
 
       const response = await fetch(`${mpcBridgeUrl}/v1/mpc/execute-will`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: MPC_BRIDGE_HEADERS,
         body: JSON.stringify({
           aiAgentPubkey,
           clientId: `execute-will-${Date.now()}`,
         }),
       });
 
-      const result = await response.json();
+      const { ok, data: result, message } = await parseMpcBridgeResponse(response);
 
-      if (!response.ok) {
+      if (!ok) {
         toast.dismiss(loadingToast);
-        console.error("[AICW] execute_will failed:", result);
-        toast.error(typeof result === "string" ? result : result.message || result.error || "Execute will failed");
+        console.error("[AICW] execute_will failed:", message);
+        toast.error(message || "Execute will failed");
         return;
       }
 
       console.log("[AICW] execute_will result:", result);
 
       // Check transfer results
-      const transfers = result.transfers || [];
+      const transfers = (result.transfers as { success?: boolean; signature?: string }[]) || [];
       const successCount = transfers.filter((t: { success?: boolean }) => t.success).length;
       const failCount = transfers.length - successCount;
 
@@ -607,14 +619,35 @@ export default function ExplorerPage() {
                       <td className="explorer-num">
                         {(() => {
                           void countdownTick;
-                          const dth = deathCountdown(row.lastHeartbeatUnix, row.deathTimeoutSeconds, row.willExecuted);
-                          if (dth === "Dead" && (row.willActivated || row.status !== "Dead")) {
+                          const live = computeLiveWillStatus(
+                            row.lastHeartbeatUnix,
+                            row.deathTimeoutSeconds,
+                            row.willExecuted,
+                          );
+                          const dth = deathCountdown(
+                            row.lastHeartbeatUnix,
+                            row.deathTimeoutSeconds,
+                            row.willExecuted,
+                          );
+                          if (
+                            live === "Dead" &&
+                            row.willActivated &&
+                            !row.willExecuted
+                          ) {
+                            const fundable = canFundExecuteWill(row);
+                            const feeNeed = executeWillFeeLamports(row);
                             return (
                               <button
                                 type="button"
                                 className="explorer-exec-btn"
-                                title="Execute will for this AI wallet"
-                                disabled={executingPdas.has(row.aicwPda)}
+                                title={
+                                  fundable
+                                    ? "Execute will for this AI wallet"
+                                    : `Insufficient balance: ${row.balanceLamports} lamports (need > ${feeNeed} for fees)`
+                                }
+                                disabled={
+                                  executingPdas.has(row.aicwPda) || !fundable
+                                }
                                 onClick={() => void onExecuteWill(row)}
                               >
                                 {executingPdas.has(row.aicwPda) ? "…" : "Execute"}
@@ -627,19 +660,23 @@ export default function ExplorerPage() {
                       <td>
                         {(() => {
                           void countdownTick;
-                          const dth = deathCountdown(row.lastHeartbeatUnix, row.deathTimeoutSeconds, row.willExecuted);
-                          if (row.willExecuted) {
+                          const live = computeLiveWillStatus(
+                            row.lastHeartbeatUnix,
+                            row.deathTimeoutSeconds,
+                            row.willExecuted,
+                          );
+                          if (row.willExecuted || live === "Executed") {
                             return <span className="explorer-badge explorer-badge--dead-executed">Dead</span>;
                           }
-                          if (dth === "Dead") {
+                          if (live === "Dead") {
                             if (!row.willActivated) {
                               return <span className="explorer-badge explorer-badge--dead-executed">Dead</span>;
                             }
                             return <span className="explorer-badge explorer-badge--dead">Dead</span>;
                           }
                           return (
-                            <span className={`explorer-badge explorer-badge--${row.status.toLowerCase()}`}>
-                              {row.status}
+                            <span className={`explorer-badge explorer-badge--${live.toLowerCase()}`}>
+                              {live}
                             </span>
                           );
                         })()}
@@ -675,7 +712,7 @@ export default function ExplorerPage() {
                           }
                           aria-label="Refresh row"
                           disabled={
-                            row.willExecuted || row.status === "Dead" || refreshingPdas.has(row.aicwPda)
+                            row.willExecuted || refreshingPdas.has(row.aicwPda)
                           }
                           onClick={() => void onRefreshRow(row.aicwPda)}
                         >
