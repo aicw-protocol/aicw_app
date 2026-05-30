@@ -2,7 +2,16 @@
 
 AICW (AI-Controlled Wallet) web application for Solana. Issue AI agent wallets, explore on-chain data, and execute wills.
 
-**Live**: https://aicw-protocol.github.io/aicw_app/
+## Links
+
+| Resource | URL |
+|----------|-----|
+| Protocol site | https://aicw.ai |
+| Docs | https://aicw.ai/docs |
+| App (primary) | https://wallet.aicw.ai/ |
+| App (GitHub Pages) | https://aicw-protocol.github.io/aicw_app/ |
+
+**Live app**: [wallet.aicw.ai](https://wallet.aicw.ai/) · legacy mirror: [aicw-protocol.github.io/aicw_app](https://aicw-protocol.github.io/aicw_app/)
 
 ## Features
 
@@ -72,9 +81,11 @@ public/
 
 ## Deployment
 
-Deployed to GitHub Pages via GitHub Actions on push to `main`.
+- **Production (recommended)**: [Vercel](https://vercel.com) → `wallet.aicw.ai`
+- **GitHub Pages**: Actions deploy on push to `main` → [aicw-protocol.github.io/aicw_app](https://aicw-protocol.github.io/aicw_app/)
 
 ## Related
 
-- [aicw](https://github.com/aicw-protocol/aicw) - Solana smart contract (Anchor)
-- [mpcium](https://github.com/fystack/mpcium) - MPC threshold signature library
+- [aicw_home](https://github.com/aicw-protocol/aicw_home) — landing & docs ([aicw.ai](https://aicw.ai))
+- [aicw](https://github.com/aicw-protocol/aicw) — Solana smart contract (Anchor)
+- [mpcium](https://github.com/fystack/mpcium) — MPC threshold signature library
