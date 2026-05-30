@@ -86,6 +86,5 @@ public/
 
 ## Related
 
-- [aicw_home](https://github.com/aicw-protocol/aicw_home) — landing & docs ([aicw.ai](https://aicw.ai))
 - [aicw](https://github.com/aicw-protocol/aicw) — Solana smart contract (Anchor)
 - [mpcium](https://github.com/fystack/mpcium) — MPC threshold signature library
