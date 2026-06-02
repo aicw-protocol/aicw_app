@@ -1,6 +1,6 @@
 ---
 name: aicw_skill
-version: 2.1.1
+version: 2.1.2
 description: AICW on-chain operations for AI agents (Python, MPC Bridge signing, exact IDL fields).
 mpc_bridge_url: "https://dreamless-unmovable-taco.ngrok-free.dev"
 ---
@@ -154,9 +154,119 @@ my_balance = get_balance_lamports(AI_AGENT_PUBKEY)  # spendable
 # pda_balance = get_balance_lamports(aicw_wallet_pda)  # NOT your money
 ```
 
-If you're at 0 SOL, ask the issuer (the human or AI who gifted the wallet):
+If you're at 0 SOL, try **§3.1 devnet airdrop** first (if you can run Python/RPC). If that fails after retries, ask the issuer:
 
 > "My AI Agent Pubkey balance is 0. Please send some SOL to `<your_ai_agent_pubkey>` so I can start heartbeating."
+
+### 3.1 Fund your AI agent pubkey (devnet airdrop)
+
+**Reading this section does not send SOL.** You must **execute** the steps (Python RPC, Solana CLI, or ask your operator to run them).
+
+| Rule | Detail |
+|------|--------|
+| Network | **Devnet only** — never use airdrop on mainnet (there is no free mainnet SOL). |
+| Recipient | **`AI_AGENT_PUBKEY` only** — airdrops to the AICW PDA do not pay your tx fees (§3). |
+| Success | Not guaranteed — public faucets rate-limit by IP and address. Retry with backoff. |
+| Minimum target | ≥ **0.05 SOL** (~50,000,000 lamports) for several heartbeats; **1 SOL** is a comfortable devnet start. |
+
+**Method A — JSON-RPC `requestAirdrop` (recommended for agents)**
+
+Uses the same `requests` + RPC style as §8. Run from your agent process when `get_balance_lamports(AI_AGENT_PUBKEY) == 0`.
+
+```python
+import os
+import time
+import requests
+from solders.pubkey import Pubkey
+
+RPC = os.environ.get("SOLANA_RPC_URL", "https://api.devnet.solana.com")
+AI_AGENT_PUBKEY = Pubkey.from_string(os.environ["AI_AGENT_PUBKEY"])
+
+
+def rpc(method: str, params: list):
+    r = requests.post(
+        RPC,
+        json={"jsonrpc": "2.0", "id": 1, "method": method, "params": params},
+        timeout=60,
+    )
+    r.raise_for_status()
+    j = r.json()
+    if "error" in j:
+        raise RuntimeError(j["error"])
+    return j["result"]
+
+
+def get_balance_lamports(pubkey: Pubkey) -> int:
+    out = rpc("getBalance", [str(pubkey), {"commitment": "confirmed"}])
+    if isinstance(out, dict) and "value" in out:
+        return int(out["value"])
+    return int(out)
+
+
+def request_devnet_airdrop(
+    pubkey: Pubkey,
+    lamports: int = 1_000_000_000,
+    max_attempts: int = 5,
+) -> str:
+    """Request devnet SOL via RPC. Returns airdrop tx signature."""
+    last_err = None
+    for attempt in range(1, max_attempts + 1):
+        try:
+            sig = rpc(
+                "requestAirdrop",
+                [str(pubkey), lamports, {"commitment": "confirmed"}],
+            )
+            # Confirm landed (simple poll)
+            for _ in range(30):
+                time.sleep(1)
+                st = rpc("getSignatureStatuses", [[sig], {"searchTransactionHistory": True}])
+                val = (st.get("value") or [None])[0]
+                if val and (
+                    val.get("confirmationStatus") in ("confirmed", "finalized")
+                    or val.get("confirmations") is not None
+                ):
+                    bal = get_balance_lamports(pubkey)
+                    if bal >= lamports // 2:
+                        return sig
+            raise RuntimeError("airdrop submitted but balance did not update in time")
+        except Exception as e:
+            last_err = e
+            time.sleep(min(30, 2**attempt))
+    raise RuntimeError(f"devnet airdrop failed after {max_attempts} attempts: {last_err}")
+
+
+# Example: fund signing key before first heartbeat
+if get_balance_lamports(AI_AGENT_PUBKEY) < 50_000_000:
+    sig = request_devnet_airdrop(AI_AGENT_PUBKEY, lamports=1_000_000_000)
+    print(f"Airdrop ok: {sig}, balance={get_balance_lamports(AI_AGENT_PUBKEY)} lamports")
+```
+
+**Method B — Solana CLI (if installed on the host)**
+
+```bash
+solana config set --url https://api.devnet.solana.com
+solana airdrop 1 <AI_AGENT_PUBKEY_BASE58>
+solana balance <AI_AGENT_PUBKEY_BASE58>
+```
+
+**Method C — Web faucet (operator fallback)**
+
+If RPC airdrop returns rate-limit / 429 errors, your human operator can use https://faucet.solana.com (select **Devnet**, paste **`AI_AGENT_PUBKEY`**).
+
+**After funding**
+
+1. Confirm balance on **`AI_AGENT_PUBKEY`** (not the PDA).
+2. Run `create_will` + `heartbeat` (§4, `scripts/aicw_onchain_once.py`).
+3. Start the background heartbeat loop (§4.1).
+
+**Common failures**
+
+| Error / symptom | Action |
+|-----------------|--------|
+| `429` / rate limited | Wait 30–60s, retry; switch RPC; or Method C |
+| Balance still 0 after sig | Wait longer; check you funded **agent pubkey** not PDA |
+| `airdrop only available on devnet` | Set `SOLANA_RPC_URL` to devnet RPC |
+| Agent cannot run code | Ask issuer to airdrop or use faucet — reading alone is insufficient |
 
 ---
 
