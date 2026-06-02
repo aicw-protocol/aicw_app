@@ -1,4 +1,4 @@
-/** Client: notify aicw_drop after confirmed issue_wallet (static export has no API routes). */
+/** Client: request devnet SOL drop after confirmed issue_wallet (static export → drop URL). */
 
 export type WalletIssuedClientPayload = {
   txSignature: string;
@@ -8,17 +8,26 @@ export type WalletIssuedClientPayload = {
   mpcWalletId?: string;
 };
 
+function dropPostUrl(): string | null {
+  const publicDrop = process.env.NEXT_PUBLIC_AICW_DROP_URL?.trim();
+  if (publicDrop) {
+    return `${publicDrop.replace(/\/$/, "")}/api/wallet-issued`;
+  }
+  return null;
+}
+
 export async function requestWalletDrop(
   payload: WalletIssuedClientPayload,
 ): Promise<void> {
-  const dropBase = process.env.NEXT_PUBLIC_AICW_DROP_SERVICE_URL?.trim();
-  if (!dropBase) {
-    console.warn("[AICW] NEXT_PUBLIC_AICW_DROP_SERVICE_URL unset — skip drop");
+  const dropUrl = dropPostUrl();
+  if (!dropUrl) {
+    console.warn(
+      "[AICW] NEXT_PUBLIC_AICW_DROP_URL unset — skip drop (static export has no /api/wallet-issued)",
+    );
     return;
   }
 
-  const url = `${dropBase.replace(/\/$/, "")}/api/wallet-issued`;
-  const res = await fetch(url, {
+  const res = await fetch(dropUrl, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),
