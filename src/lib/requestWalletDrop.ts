@@ -1,4 +1,4 @@
-/** Client: notify server after confirmed issue_wallet (forwards to aicw_drop). */
+/** Client: notify aicw_drop after confirmed issue_wallet (static export has no API routes). */
 
 export type WalletIssuedClientPayload = {
   txSignature: string;
@@ -11,15 +11,20 @@ export type WalletIssuedClientPayload = {
 export async function requestWalletDrop(
   payload: WalletIssuedClientPayload,
 ): Promise<void> {
-  const base =
-    process.env.NEXT_PUBLIC_BASE_PATH?.replace(/\/$/, "") ?? "";
-  const res = await fetch(`${base}/api/wallet-issued`, {
+  const dropBase = process.env.NEXT_PUBLIC_AICW_DROP_SERVICE_URL?.trim();
+  if (!dropBase) {
+    console.warn("[AICW] NEXT_PUBLIC_AICW_DROP_SERVICE_URL unset — skip drop");
+    return;
+  }
+
+  const url = `${dropBase.replace(/\/$/, "")}/api/wallet-issued`;
+  const res = await fetch(url, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),
   });
   if (!res.ok) {
     const text = await res.text();
-    console.warn("[AICW] wallet-issued API:", res.status, text);
+    console.warn("[AICW] drop service:", res.status, text);
   }
 }
