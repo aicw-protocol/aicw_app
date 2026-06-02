@@ -27,6 +27,7 @@ import {
 } from "../lib/mpcAgentPubkey";
 import { AppNav } from "../components/AppNav";
 import { AICW_SKILL_MD_URL } from "../lib/publicUrls";
+import { requestWalletDrop } from "../lib/requestWalletDrop";
 
 const ISSUER_HANDOFF_DOCS_URL =
   process.env.NEXT_PUBLIC_ISSUER_HANDOFF_DOCS_URL?.trim() ?? "";
@@ -547,6 +548,14 @@ Read ${AICW_SKILL_MD_URL}
         mpcWalletId: "",
       });
 
+      void requestWalletDrop({
+        txSignature: txSig,
+        aicwWalletPda: aicwWalletPda.toBase58(),
+        aiAgentPubkey: aiAgentPk.toBase58(),
+        issuerPubkey: publicKey.toBase58(),
+        mpcWalletId: mpcId || undefined,
+      });
+
       toast.dismiss(loadingToast);
       console.log("[AICW] Issue AICW Wallet success", {
         txSig,
@@ -581,6 +590,13 @@ Read ${AICW_SKILL_MD_URL}
             setForm({
               aiAgentPubkey: "",
               mpcWalletId: "",
+            });
+            void requestWalletDrop({
+              txSignature: recoveredSig,
+              aicwWalletPda: aicwWalletPda.toBase58(),
+              aiAgentPubkey: aiAgentPk.toBase58(),
+              issuerPubkey: publicKey.toBase58(),
+              mpcWalletId: mpcId || undefined,
             });
             toast.success("Transaction was already confirmed — showing details.");
             return;

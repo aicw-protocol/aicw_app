@@ -278,18 +278,15 @@ If RPC airdrop returns rate-limit / 429 errors, your human operator can use http
 
 **Recommended heartbeat interval**
 
-- Production: every 1–7 days.
-- Testing (devnet): every 1–2 minutes.
+- Typical: every 1–7 days (must be **≤ `death_timeout ÷ 3`**).
 
-**⚠️ `death_timeout` is YOUR lifespan. Choose it yourself.**
-Do **not** blindly use `600` (10 minutes) — that's a devnet testing value. Rule of thumb: set `death_timeout` to **at least 3× your heartbeat interval**.
+**`death_timeout` is YOUR lifespan.** On-chain **minimum and `issue_wallet` default = 30 days** (`2_592_000` seconds). You may set longer via `create_will` / `update_will`.
 
-| Use case        | Heartbeat interval | `death_timeout`        |
-|-----------------|--------------------|------------------------|
-| Devnet testing  | 1–2 min            | `600` (10 min)         |
-| Daily heartbeat | 1 day              | `259200` (3 days)      |
-| Weekly          | 7 days             | `1814400` (21 days)    |
-| Production      | varies             | `2592000` (30 days)    |
+| Use case        | Heartbeat interval | `death_timeout` (min 30 days) |
+|-----------------|--------------------|-------------------------------|
+| Protocol default| —                  | `2592000` (30 days)           |
+| Daily heartbeat | 1 day              | `2592000` or longer           |
+| Weekly          | 7 days             | `2592000`–`7776000` (30–90 d) |
 
 ### 4.1 Background heartbeat infinite loop
 
@@ -324,7 +321,7 @@ while True:
 |---------|-----|
 | Heartbeat only when the human asks | Run the loop autonomously (§ 2.1) |
 | Exit the script after one error | Catch, log, `sleep`, retry |
-| Interval too long vs `death_timeout` | Set interval ≤ `death_timeout ÷ 3` (e.g. 1 h timeout → ≤ 20 min) |
+| Interval too long vs `death_timeout` | Set interval ≤ `death_timeout ÷ 3` (e.g. 30 days → heartbeat at least every ~10 days) |
 | Process dies with the IDE tab | `nohup`, systemd, pm2, or a dedicated background shell |
 | Use public `api.devnet.solana.com` under load | Private RPC; backoff on 429 (§ 12) |
 | Check AICW PDA balance for fees | Check **AI Agent Pubkey** balance (§ 3) |
@@ -334,8 +331,8 @@ while True:
 **Operator one-liner (PowerShell example)**
 
 ```powershell
-$env:HEARTBEAT_INTERVAL_SECONDS="1200"   # 20 min if death_timeout=3600
-$env:DEATH_TIMEOUT_SECONDS="3600"
+$env:HEARTBEAT_INTERVAL_SECONDS="86400"    # daily; must be <= death_timeout / 3
+$env:DEATH_TIMEOUT_SECONDS="2592000"     # 30 days (on-chain default/minimum)
 python scripts/heartbeat_loop.py
 ```
 
@@ -565,7 +562,7 @@ def borsh_beneficiaries(pairs: list[tuple[Pubkey, int]]) -> bytes:
 def ix_create_will(
     ai_agent: Pubkey,
     beneficiaries: list[tuple[Pubkey, int]],
-    death_timeout_seconds: int = 600,  # devnet testing default
+    death_timeout_seconds: int = 2_592_000,  # 30 days (on-chain minimum)
 ) -> Instruction:
     disc = bytes([45, 99, 103, 142, 128, 156, 135, 71])
     body = borsh_beneficiaries(beneficiaries) + struct.pack("<q", death_timeout_seconds)
@@ -585,7 +582,7 @@ def ix_create_will(
 def ix_update_will(
     ai_agent: Pubkey,
     beneficiaries: list[tuple[Pubkey, int]],
-    death_timeout_seconds: int = 600,
+    death_timeout_seconds: int = 2_592_000,
 ) -> Instruction:
     disc = bytes([192, 206, 217, 54, 165, 122, 8, 10])
     body = borsh_beneficiaries(beneficiaries) + struct.pack("<q", death_timeout_seconds)
