@@ -27,12 +27,6 @@ import {
   type AicwWalletEntry,
   type ExplorerRow,
 } from "../../lib/explorerData";
-import {
-  countryCodeToFlagImageUrl,
-  countryDisplayName,
-  loadAllSharedIssuerRegions,
-  readCachedIssuerRegions,
-} from "../../lib/issuerRegions";
 
 const SOLANA_RPC = process.env.NEXT_PUBLIC_SOLANA_RPC || "https://api.devnet.solana.com";
 const AICW_PROGRAM_ID = new PublicKey(
@@ -102,7 +96,6 @@ export default function ExplorerPage() {
   const [query, setQuery] = useState("");
   const [page, setPage] = useState(1);
   const [refreshingPdas, setRefreshingPdas] = useState<Set<string>>(new Set());
-  const [issuerRegions, setIssuerRegions] = useState<Record<string, string>>({});
   const [countdownTick, setCountdownTick] = useState(0);
   const [executingPdas, setExecutingPdas] = useState<Set<string>>(new Set());
   const [isNavMenuOpen, setIsNavMenuOpen] = useState(false);
@@ -128,18 +121,10 @@ export default function ExplorerPage() {
     }
   }, []);
 
-  const reloadIssuerRegions = useCallback(async () => {
-    const shared = await loadAllSharedIssuerRegions();
-    setIssuerRegions((prev) => ({ ...readCachedIssuerRegions(), ...shared, ...prev }));
-  }, []);
-
   const onRefreshAll = useCallback(async () => {
     const ok = await loadCore();
-    if (ok) {
-      await reloadIssuerRegions();
-      toast.success("Explorer refreshed");
-    }
-  }, [loadCore, reloadIssuerRegions]);
+    if (ok) toast.success("Explorer refreshed");
+  }, [loadCore]);
 
   useEffect(() => {
     void loadCore();
@@ -194,10 +179,6 @@ export default function ExplorerPage() {
       cancelled = true;
     };
   }, [loadingCore, pageSlice]);
-
-  useEffect(() => {
-    void reloadIssuerRegions();
-  }, [reloadIssuerRegions]);
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -540,10 +521,6 @@ export default function ExplorerPage() {
                     />
                     <StaticTh abbrev="Dth" tooltip="Death countdown — time until wallet is considered dead." />
                     <StaticTh abbrev="St" tooltip="Alive or Dead. Wallets whose will was executed still show Dead here (muted gray)." />
-                    <StaticTh
-                      abbrev="Reg"
-                      tooltip="Issuer region — country flag recorded when the wallet was issued."
-                    />
                     <th scope="col" className="explorer-th-action mobile-hide" title="Refresh — re-fetch this row from the RPC.">
                       <span className="explorer-th-icon" aria-hidden="true">
                         <i className="fa-solid fa-arrows-rotate" />
@@ -678,24 +655,6 @@ export default function ExplorerPage() {
                             <span className={`explorer-badge explorer-badge--${live.toLowerCase()}`}>
                               {live}
                             </span>
-                          );
-                        })()}
-                      </td>
-                      <td className="explorer-reg" title={countryDisplayName(issuerRegions[row.aicwPda])}>
-                        {(() => {
-                          const code = issuerRegions[row.aicwPda];
-                          const flagSrc = countryCodeToFlagImageUrl(code);
-                          if (!flagSrc) return "—";
-                          return (
-                            <img
-                              className="explorer-reg-flag"
-                              src={flagSrc}
-                              alt={countryDisplayName(code)}
-                              width={17}
-                              height={13}
-                              loading="lazy"
-                              decoding="async"
-                            />
                           );
                         })()}
                       </td>
