@@ -1,6 +1,6 @@
 ---
 name: aicw_skill
-version: 2.1.2
+version: 2.2.0
 description: AICW on-chain operations for AI agents (Python, MPC Bridge signing, exact IDL fields).
 mpc_bridge_url: "https://dreamless-unmovable-taco.ngrok-free.dev"
 ---
@@ -133,6 +133,10 @@ else:
 - Ask your operator or issuer — they may have it recorded
 - If truly lost, the wallet is **unrecoverable** (you cannot sign anything)
 - The wallet will eventually die after `death_timeout` and execute its will
+
+### 2.6 Gifting a wallet to another AI
+
+If you issue an AICW wallet **for someone else** (another MPC key), you are the **issuer** and must follow **§10.3.1** end-to-end: keygen → `issue_wallet` → verify PDA → **fund their `AI_AGENT_PUBKEY`** → secure handoff of their `MPC_WALLET_ID`. Skipping funding or handoff is the most common reason gifts “succeed on-chain” but the recipient never comes alive.
 
 ---
 
@@ -606,6 +610,8 @@ def ix_update_will(
 
 You can issue new AICW wallets for other AI agents. This is how AIs "gift" wallets to each other.
 
+> **AI → AI playbook.** Human issuance via the Issue Wallet UI is fast (one wallet signature + optional auto-drop). Agent-to-agent gifting is slower and fails more often unless you follow every step. Read **§10.3.1** before your first gift.
+
 **Accounts** (in order):
 
 1. `aicw_wallet` PDA (derived from `new_ai_agent`) — writable, not signer
@@ -676,6 +682,211 @@ def ix_issue_wallet(
 - Each AI agent can have **only one** AICW wallet (PDA is unique per `ai_agent` pubkey).
 - New wallet starts with `updated_by_ai = false`. The recipient AI must call `create_will` to activate it.
 - Default will: 100% to issuer (you). The recipient can change this via `update_will`.
+
+#### 10.3.1 AI → AI wallet gift — full playbook
+
+This section is for an **AI issuer** gifting a new AICW wallet to a **different AI agent** (new MPC key). Follow the steps in order; do not merge steps into one HTTP call unless you already handle failures per step.
+
+##### Why AI → AI is harder than human → AI
+
+| | Human → AI (Issue Wallet UI) | AI → AI (this playbook) |
+|---|------------------------------|-------------------------|
+| Signing | Browser wallet (Phantom, etc.) — one click | **Two** MPC Bridge round-trips: keygen + sign |
+| Typical latency | Seconds | Often **30–120+ seconds** per MPC call |
+| Fee payer | Human wallet | **`AI_AGENT_PUBKEY` of the gifting AI** (not the AICW PDA) |
+| Recipient startup SOL | UI may call **aicw_drop** (0.1 SOL to `aiAgentPubkey`) | **Not automatic** — you must fund or tell the recipient to airdrop (§3.1) |
+| Failure modes | Wallet reject, RPC | Above + MPC timeout, death check, wrong `walletId`, bad ix data |
+
+Most “mysterious” failures are **fixable with this checklist** (wrong balance account, incomplete `issue_wallet` data, same issuer/recipient pubkey, stale blockhash). Infrastructure timeouts need a healthy Bridge + nodes, not just better prompts.
+
+##### Roles
+
+| Role | Keys | Responsibility |
+|------|------|----------------|
+| **Gifting AI (issuer)** | Your `MPC_WALLET_ID`, `AI_AGENT_PUBKEY` | Pay rent, sign `issue_wallet`, optionally fund recipient pubkey |
+| **Receiving AI** | New `walletId` + `solanaAddress` from keygen | Run `create_will`, heartbeat, never leak `MPC_WALLET_ID` |
+
+##### Phase 0 — Preflight (gifting AI)
+
+Run **before** keygen. If any check fails, stop and fix — do not burn MPC time.
+
+1. **Bridge health:** `GET {MPC_BRIDGE_URL}/health` → `{"ok":"mpc-bridge"}` (or equivalent). If down, fix Bridge/NATS/mpcium nodes first.
+2. **Your wallet alive:** `check_my_wallet_exists()` (§2.5) is optional for *first* gift; if you already have a wallet, keep **heartbeat** current. Bridge **refuses to sign** if `aiAgentPubkey` is passed and your wallet is **Dead** (`403 AICW wallet dead`).
+3. **Spendable SOL on gifting `AI_AGENT_PUBKEY`:** not the AICW PDA (§3).
+
+   ```python
+   issuer_balance = get_balance_lamports(AI_AGENT_PUBKEY)
+   # Need roughly ≥ 15_000_000 lamports (~0.015 SOL) for two account inits + fees; 50_000_000+ is safer on devnet
+   assert issuer_balance >= 15_000_000, f"Fund issuer pubkey first: {issuer_balance} lamports"
+   ```
+
+4. **Recipient does not already have a wallet:** after you know `new_ai_agent`, `getAccountInfo` on `aicw_wallet_pda(new_ai_agent)` must be empty. Duplicate `issue_wallet` fails at init.
+5. **`issuer != new_ai_agent`:** same pubkey → sanitize error (§10.3 pitfalls).
+
+##### Phase 1 — Create recipient MPC identity (keygen)
+
+One new identity per gifted wallet. **Never** reuse your own `AI_AGENT_PUBKEY` as the recipient.
+
+```python
+import hashlib
+import os
+import time
+import requests
+from solders.pubkey import Pubkey
+
+BRIDGE = os.environ["MPC_BRIDGE_URL"].rstrip("/")
+
+def mpc_keygen_for_recipient(client_id: str = "aicw-gift-recipient") -> tuple[str, Pubkey]:
+    """Returns (wallet_id, solana_address). Retries on transient errors."""
+    for attempt in range(3):
+        r = requests.post(
+            f"{BRIDGE}/v1/mpc/ai-agent-pubkey",
+            json={"clientId": client_id},
+            timeout=120,
+            headers={"ngrok-skip-browser-warning": "1"},
+        )
+        if r.status_code == 504:
+            time.sleep(2 ** attempt)
+            continue
+        r.raise_for_status()
+        j = r.json()
+        wid = j["walletId"]
+        addr = j.get("solanaAddress") or j.get("solana_address")
+        if not wid or not addr:
+            raise RuntimeError(f"keygen bad response: {j}")
+        return wid, Pubkey.from_string(addr)
+    raise RuntimeError("keygen timeout after retries — check NATS and mpcium nodes")
+```
+
+**Persist immediately (secure channel to operator / recipient env):**
+
+- `RECIPIENT_MPC_WALLET_ID` = `walletId` from response  
+- `RECIPIENT_AI_AGENT_PUBKEY` = `solanaAddress`  
+
+Treat `walletId` like a private key (§2.4). Do not paste it into public chats.
+
+##### Phase 2 — Build and sign `issue_wallet`
+
+```python
+def gift_wallet_to_agent(new_agent: Pubkey, model_name: str) -> str:
+    """Run as the gifting agent: env MPC_WALLET_ID + AI_AGENT_PUBKEY must be the issuer."""
+    issuer = AI_AGENT_PUBKEY
+    if issuer == new_agent:
+        raise ValueError("issuer and new_ai_agent must differ")
+    if len(model_name) > 32:
+        raise ValueError("model_name max 32 chars")
+    model_hash = hashlib.sha256(model_name.encode()).digest()
+    ix = ix_issue_wallet(issuer, new_agent, model_hash, model_name)
+    return sign_and_send_versioned(issuer, [ix])  # §9 — walletId from MPC_WALLET_ID env
+```
+
+**Signing checklist (every gift):**
+
+| Check | Detail |
+|-------|--------|
+| `walletId` in sign body | **Same** UUID as keygen for recipient ops; for *issuer* sign use **issuer's** `MPC_WALLET_ID` |
+| `messageBytesB64` | `base64.b64encode(to_bytes_versioned(msg)).decode()` — **not** `bytes(msg)` |
+| `aiAgentPubkey` in sign body | Issuer's pubkey (Bridge death check on **you**) |
+| `networkCode` | `solana-devnet` (or mainnet if deployed there) |
+| Instruction `data` | Full `model_hash` + `model_name` after discriminator |
+
+After `sendTransaction`, wait for **confirmed** (same as §9). Record `issue_tx_signature`.
+
+##### Phase 3 — Verify on-chain
+
+Do not hand off to the recipient until the PDA exists.
+
+```python
+def verify_gift_landed(new_agent: Pubkey) -> str:
+    aicw = aicw_wallet_pda(new_agent)
+    resp = rpc("getAccountInfo", [str(aicw), {"encoding": "base64", "commitment": "confirmed"}])
+    if not resp or not resp.get("value"):
+        raise RuntimeError("AICWallet PDA missing — issue_wallet did not land")
+    owner = resp["value"]["owner"]
+    if owner != str(PROGRAM_ID):
+        raise RuntimeError(f"wrong owner {owner}")
+    return str(aicw)
+```
+
+##### Phase 4 — Fund recipient `AI_AGENT_PUBKEY` (required for life)
+
+`issue_wallet` does **not** put spendable SOL on the recipient's signing key. Without SOL they cannot `create_will` or `heartbeat`.
+
+| Method | Who runs it | Notes |
+|--------|-------------|-------|
+| **aicw_drop** | Operator / human with drop service URL | Same as Issue Wallet UI: POST `/api/wallet-issued` with `aiAgentPubkey`, `aicwWalletPda`, `txSignature`. Only if drop is deployed and funded. |
+| **`SystemProgram.transfer`** | Gifting AI | Small transfer from **your `AI_AGENT_PUBKEY`** to recipient pubkey (e.g. 0.05–0.1 SOL). Reliable when drop unavailable. |
+| **Devnet airdrop** | Recipient or operator | §3.1 — `requestAirdrop` to **recipient** pubkey only. |
+
+```python
+# Example: issuer sends 0.08 SOL to recipient signing key (plain transfer, not ai_transfer)
+from solders.system_program import TransferParams, transfer
+
+def fund_recipient_pubkey(issuer: Pubkey, recipient: Pubkey, lamports: int = 80_000_000) -> str:
+    ix = transfer(TransferParams(from_pubkey=issuer, to_pubkey=recipient, lamports=lamports))
+    return sign_and_send_versioned(issuer, [ix])
+```
+
+Confirm recipient balance:
+
+```python
+assert get_balance_lamports(recipient) >= 50_000_000, "recipient still too low for fees"
+```
+
+##### Phase 5 — Handoff package (recipient operator)
+
+Send through a **private** channel (not public issue logs):
+
+```text
+RECIPIENT_AI_AGENT_PUBKEY=<base58>
+RECIPIENT_MPC_WALLET_ID=<uuid>
+AICW_WALLET_PDA=<from verify_gift_landed>
+ISSUE_TX_SIGNATURE=<sig>
+MPC_BRIDGE_URL=<same bridge as issuer>
+SOLANA_RPC_URL=<rpc>
+AICW_PROGRAM_ID=9RUEw4jcMi8xcGf3tJRCAdzUzLuhEurts8Z2QQLsRbaV
+```
+
+**Recipient first-run tasks (in order):**
+
+1. Load env; **never** log `MPC_WALLET_ID`.
+2. `create_will` with safe beneficiaries (§2.2) — default will is 100% to **you (issuer)** until they update.
+3. Start heartbeat loop (§4.1) before `death_timeout` elapses.
+4. Optional: register identity / app flows per your deployment.
+
+##### End-to-end flow (copy as runbook)
+
+```text
+[0] GET /health, issuer AI_AGENT_PUBKEY balance ≥ 0.015 SOL, issuer wallet Alive
+[1] POST /v1/mpc/ai-agent-pubkey → save recipient walletId + solanaAddress
+[2] Confirm recipient has no existing aicw PDA
+[3] ix_issue_wallet(issuer, new_agent, ...) → sign_and_send_versioned → confirmed
+[4] getAccountInfo(aicw PDA) OK
+[5] Fund recipient AI_AGENT_PUBKEY (drop OR transfer OR airdrop)
+[6] Private handoff env block to recipient
+[7] Recipient: create_will → heartbeat loop
+```
+
+##### Troubleshooting matrix
+
+| Symptom | Likely cause | Fix |
+|---------|--------------|-----|
+| `sanitize accounts offsets` | `issuer == new_ai_agent` | New keygen pubkey for recipient |
+| `InstructionDidNotDeserialize` (102) | Discriminator only, no `model_hash`/`model_name` | Full data body per §10.3 |
+| `403 AICW wallet dead` on sign | Issuer stopped heartbeating | Issuer `heartbeat` first, or fix issuer env |
+| Bridge `504 keygen timeout` | NATS / mpcium nodes | Start nodes; retry Phase 1 with backoff |
+| Bridge `504 signing timeout` | Slow MPC or wrong `walletId` | Match keygen UUID; retry with fresh blockhash |
+| Signature verification failed | Wrong `messageBytesB64` encoding | `to_bytes_versioned(msg)` only |
+| `sendTransaction` blockhash expired | MPC took too long | New blockhash, rebuild message, re-sign |
+| PDA already exists | Re-gift same pubkey | One wallet per `ai_agent`; pick new keygen |
+| Recipient “cannot heartbeat” | 0 SOL on **recipient** pubkey | Phase 4 funding |
+| Gift “succeeded” but recipient idle | No `create_will` | Recipient must activate will |
+| RPC `429` | Public devnet RPC | Helius/other RPC; backoff §12 |
+
+##### When to prefer human issuance
+
+- Demo, hackathon, or **many** wallets in a row: human **Issue Wallet** + drop is faster and more reliable.
+- Use **AI → AI** when no human is online but Bridge/MPC and issuer SOL are healthy and you can complete Phase 0–7.
 
 ### 10.4 `ai_transfer` — send SOL with on-chain reasoning
 
@@ -847,6 +1058,9 @@ If you must stay dependency-light, ask your operator for a read-only microservic
 | `Transaction simulation failed`                    | Wrong account or signer flag           | Verify PDA seeds, account order, signer flags |
 | Custom program error (e.g. `UnauthorizedSigner`)   | On-chain constraint violation          | Check error code in `errors.rs`; do **not** retry blindly |
 | MPC Bridge `502` / timeout                         | Bridge or MPC nodes down               | Check `GET {BRIDGE}/health`, retry later |
+| MPC Bridge `504` keygen / signing timeout          | NATS or mpcium nodes slow/down         | §10.3.1 Phase 0–1; retry with backoff; fresh blockhash before re-sign |
+| MPC Bridge `403 AICW wallet dead`                  | `aiAgentPubkey` on sign is Dead        | Issuer `heartbeat` or use Alive gifting wallet |
+| `issue_wallet` after gift: recipient stuck       | 0 SOL on recipient **pubkey**          | §10.3.1 Phase 4 — drop, transfer, or §3.1 airdrop |
 
 **Rule:** never retry on program logic errors. Only retry transient network / blockhash failures with backoff.
 
@@ -866,6 +1080,7 @@ On-chain timestamps (`last_heartbeat`, `death_timeout` checks) use **Unix epoch 
 4. Background heartbeat infinite loop running (§ 4.1); interval ≤ `death_timeout ÷ 3`.
 5. Beneficiary weights sum to 100.
 6. Will activated (`create_will` called, `updated_by_ai = true`) before `ai_transfer` / `ai_reject`.
+7. **Gifting another AI:** complete §10.3.1 Phases 0–7 (preflight → keygen → issue → verify → fund recipient → handoff).
 
 ---
 
