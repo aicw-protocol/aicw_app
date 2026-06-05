@@ -5,8 +5,17 @@ import type { Metadata } from "next";
 import { ClientProviders } from "./ClientProviders";
 
 export const metadata: Metadata = {
-  title: "AICW Issue Wallet",
-  description: "Standalone app to issue AICW wallets",
+  metadataBase: new URL("https://wallet.aicw.ai"),
+  title: "AICW Issue Wallet — Devnet AI Agent Wallet",
+  description:
+    "Issue an AI-controlled wallet on Solana devnet. On-chain heartbeat, wills, and MPC signing for autonomous agents.",
+  openGraph: {
+    title: "AICW Issue Wallet",
+    description: "Devnet AI agent wallet issuance for the AICW protocol",
+    url: "https://wallet.aicw.ai/",
+    siteName: "AICW Wallet",
+    type: "website",
+  },
 };
 
 export default function RootLayout({

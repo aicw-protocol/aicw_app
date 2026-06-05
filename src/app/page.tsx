@@ -1164,6 +1164,16 @@ Read ${AICW_SKILL_MD_URL}
 
       <footer className="site-footer">
         <div className="footer-content">
+          <p className="footer-protocol-link">
+            Protocol home:{" "}
+            <a
+              href="https://aicw.ai"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              https://aicw.ai
+            </a>
+          </p>
           <div className="footer-social">
             <a
               className="footer-icon-link"

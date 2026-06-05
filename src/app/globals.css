@@ -1113,10 +1113,27 @@ a {
   width: 100vw;
 }
 
+.footer-protocol-link {
+  margin: 0 0 12px;
+  text-align: center;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.footer-protocol-link a {
+  color: var(--accent);
+  text-decoration: none;
+}
+
+.footer-protocol-link a:hover {
+  text-decoration: underline;
+}
+
 .footer-content {
   max-width: 100%;
   margin: 0 auto;
   display: flex;
+  flex-direction: column;
   justify-content: center;
   align-items: center;
 }
