@@ -966,11 +966,11 @@ Read ${AICW_SKILL_MD_URL}
               <div className="modal-skill-download">
                 <a
                   href={AICW_SKILL_MD_URL}
-                  download="aicw_skill.md"
+                  download="SKILL.md"
                   className="btn modal-download-btn"
                 >
                   <i className="fa-solid fa-download" style={{ marginRight: 6 }} />
-                  Download aicw_skill.md
+                  Download SKILL.md
                 </a>
               </div>
 
