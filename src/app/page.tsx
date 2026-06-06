@@ -965,7 +965,7 @@ Read ${AICW_SKILL_MD_URL}
               <span className="modal-key-name">Agent skill document</span>
               <div className="modal-skill-download">
                 <a
-                  href={AICW_SKILL_MD_URL}
+                  href="/aicw_skill.md"
                   download="SKILL.md"
                   className="btn modal-download-btn"
                 >
