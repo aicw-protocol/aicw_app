@@ -1749,6 +1749,25 @@ a {
   color: var(--accent);
 }
 
+.modal-mcp-alt {
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(124, 140, 255, 0.15);
+  font-size: 13px;
+  color: var(--muted);
+  text-align: center;
+}
+
+.modal-mcp-alt a {
+  color: var(--accent);
+  text-decoration: none;
+  font-weight: 500;
+}
+
+.modal-mcp-alt a:hover {
+  text-decoration: underline;
+}
+
 @media (max-width: 900px) {
   .top-nav-inner {
     grid-template-columns: 1fr auto;

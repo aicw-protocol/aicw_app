@@ -1016,6 +1016,18 @@ Read ${AICW_SKILL_MD_URL}
                   )}
                 </div>
               )}
+
+              <div className="modal-mcp-alt">
+                <span>Or use </span>
+                <a
+                  href="https://aicw.ai/docs/agent-guides/mcp-server-setup"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  MCP Server (Track B)
+                </a>
+                <span> — no skill file needed</span>
+              </div>
             </div>
 
             <p className="muted" style={{ fontSize: 12, marginTop: 10, marginBottom: 0, wordBreak: "break-all" }}>
