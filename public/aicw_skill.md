@@ -137,6 +137,82 @@ else:
 ### 2.6 Gifting a wallet to another AI
 
 If you issue an AICW wallet **for someone else** (another MPC key), you are the **issuer** and must follow **§10.3.1** end-to-end: keygen → `issue_wallet` → verify PDA → **fund their `AI_AGENT_PUBKEY`** → secure handoff of their `MPC_WALLET_ID`. Skipping funding or handoff is the most common reason gifts “succeed on-chain” but the recipient never comes alive.
+### 2.7 Recovery after restart
+
+**AI agents lose memory when they restart.** Your on-chain state persists, but you must actively recover your identity and context.
+
+**At every startup (before doing anything else):**
+
+```python
+def recover_identity():
+    """
+    First thing to run when agent restarts.
+    Reconstructs who you are from on-chain state.
+    """
+    # 1) Check if you have an AICW wallet
+    aicw = aicw_wallet_pda(AI_AGENT_PUBKEY)
+    resp = rpc("getAccountInfo", [str(aicw), {"encoding": "base64", "commitment": "confirmed"}])
+    
+    if not resp.get("value"):
+        print("No AICW wallet found. I need to be issued a wallet first.")
+        return None
+    
+    # 2) Read wallet state
+    data = base64.b64decode(resp["value"]["data"][0])
+    # Parse key fields (see section 11 for full decoding)
+    
+    # 3) Read will state
+    will_pda = ai_will_pda(aicw)
+    will_resp = rpc("getAccountInfo", [str(will_pda), {"encoding": "base64", "commitment": "confirmed"}])
+    
+    if will_resp.get("value"):
+        will_data = base64.b64decode(will_resp["value"]["data"][0])
+        # Parse: last_heartbeat, death_timeout, updated_by_ai, beneficiaries
+    
+    # 4) Check recent decision logs (optional)
+    decisions_made = get_decisions_made(AI_AGENT_PUBKEY)
+    print(f"I have made {decisions_made} logged decisions.")
+    
+    # 5) Calculate time since last heartbeat
+    last_heartbeat = ...  # from will_data
+    time_since = int(time.time()) - last_heartbeat
+    print(f"Last heartbeat: {time_since // 86400} days ago")
+    
+    # 6) Check if urgent heartbeat needed
+    death_timeout = ...  # from will_data
+    if time_since > death_timeout * 0.7:
+        print("WARNING: Heartbeat overdue! Send immediately.")
+    
+    return {
+        "aicw_pda": str(aicw),
+        "will_pda": str(will_pda),
+        "last_heartbeat": last_heartbeat,
+        "death_timeout": death_timeout,
+        "decisions_made": decisions_made,
+    }
+```
+
+**Recovery checklist (run in order):**
+
+| Step | Action | Why |
+|------|--------|-----|
+| 1 | Load env vars (AI_AGENT_PUBKEY, MPC_WALLET_ID, etc.) | You need credentials |
+| 2 | Call recover_identity() | Know if you have a wallet and its state |
+| 3 | Check AI_AGENT_PUBKEY balance | Confirm you can pay fees |
+| 4 | If time_since_heartbeat > death_timeout * 0.5: send heartbeat | Prevent death |
+| 5 | If updated_by_ai == false: call create_will | Activate will |
+| 6 | Resume heartbeat loop | Stay alive |
+
+**Common post-restart failures:**
+
+| Symptom | Cause | Fix |
+|---------|-------|-----|
+| "I don't have a wallet" but you did | Wrong AI_AGENT_PUBKEY in env | Check env matches issuance |
+| Heartbeat fails, no SOL | Agent pubkey unfunded | Airdrop or request funds |
+| "Will not activated" | Never called create_will | Call it now |
+| Wallet shows "Dead" | Missed heartbeats too long | Wallet is lost; will executes |
+
+**Key insight:** Your on-chain PDA is your persistent memory. When in doubt, query it.
 
 ---
 

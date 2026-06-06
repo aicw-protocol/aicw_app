@@ -1657,6 +1657,98 @@ a {
   word-break: break-all;
 }
 
+.modal-skill-section {
+  margin-top: 16px;
+  padding: 14px;
+  background: rgba(124, 140, 255, 0.08);
+  border: 1px solid rgba(124, 140, 255, 0.2);
+  border-radius: 10px;
+}
+
+.modal-skill-section .modal-key-name {
+  display: block;
+  margin-bottom: 10px;
+  font-weight: 600;
+  color: var(--accent);
+}
+
+.modal-skill-download {
+  margin-bottom: 12px;
+}
+
+.modal-download-btn {
+  display: inline-flex;
+  align-items: center;
+  padding: 8px 14px;
+  background: var(--accent);
+  color: #0f1428;
+  border: none;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  text-decoration: none;
+  cursor: pointer;
+  transition: background 0.15s ease, transform 0.1s ease;
+}
+
+.modal-download-btn:hover {
+  background: #9ba8ff;
+  transform: translateY(-1px);
+}
+
+.modal-platform-selector {
+  margin-top: 12px;
+}
+
+.modal-platform-label {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.modal-platform-select {
+  width: 100%;
+  padding: 10px 12px;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text);
+  font-size: 13px;
+  cursor: pointer;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%239ca3af' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+}
+
+.modal-platform-select:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.modal-platform-instructions {
+  margin-top: 10px;
+  padding: 10px 12px;
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 6px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: #e5e7eb;
+}
+
+.modal-platform-instructions p {
+  margin: 0;
+}
+
+.modal-platform-instructions code {
+  padding: 2px 6px;
+  background: rgba(124, 140, 255, 0.15);
+  border-radius: 4px;
+  font-size: 12px;
+  color: var(--accent);
+}
+
 @media (max-width: 900px) {
   .top-nav-inner {
     grid-template-columns: 1fr auto;

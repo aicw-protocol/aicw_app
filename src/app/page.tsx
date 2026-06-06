@@ -159,6 +159,7 @@ export default function AicwIssuerPage() {
     mpcWalletId: string;
   } | null>(null);
   const [successCopied, setSuccessCopied] = useState(false);
+  const [selectedPlatform, setSelectedPlatform] = useState<string>("");
   const [aicwExistsOnChain, setAicwExistsOnChain] = useState<boolean | null>(null);
   const [showAppRegisterModal, setShowAppRegisterModal] = useState(false);
   const [appRegisterForm, setAppRegisterForm] = useState({
@@ -960,6 +961,63 @@ Read ${AICW_SKILL_MD_URL}
               <pre className="modal-success-value terminal-value">{issueSuccess.mpcWalletId || "—"}</pre>
             </div>
 
+            <div className="modal-skill-section">
+              <span className="modal-key-name">Agent skill document</span>
+              <div className="modal-skill-download">
+                <a
+                  href={AICW_SKILL_MD_URL}
+                  download="aicw_skill.md"
+                  className="btn modal-download-btn"
+                >
+                  <i className="fa-solid fa-download" style={{ marginRight: 6 }} />
+                  Download aicw_skill.md
+                </a>
+              </div>
+
+              <div className="modal-platform-selector">
+                <label htmlFor="platform-select" className="modal-platform-label">
+                  Select your agent platform:
+                </label>
+                <select
+                  id="platform-select"
+                  value={selectedPlatform}
+                  onChange={(e) => setSelectedPlatform(e.target.value)}
+                  className="modal-platform-select"
+                >
+                  <option value="">-- Choose platform --</option>
+                  <option value="openclaw">OpenClaw</option>
+                  <option value="cursor">Cursor</option>
+                  <option value="claude-desktop">Claude Desktop</option>
+                  <option value="windsurf">Windsurf</option>
+                  <option value="vscode-cline">VS Code (Cline)</option>
+                  <option value="langchain">LangChain / CrewAI / AutoGen</option>
+                </select>
+              </div>
+
+              {selectedPlatform && (
+                <div className="modal-platform-instructions">
+                  {selectedPlatform === "openclaw" && (
+                    <p>Place the file at: <code>~/.openclaw/skills/aicw/SKILL.md</code> — auto-loaded on startup.</p>
+                  )}
+                  {selectedPlatform === "cursor" && (
+                    <p>Create <code>.cursor/rules/</code> folder in your project root and place the file there, or paste the content into Settings → Rules.</p>
+                  )}
+                  {selectedPlatform === "claude-desktop" && (
+                    <p>Connect via MCP server, or attach the file at the start of each conversation.</p>
+                  )}
+                  {selectedPlatform === "windsurf" && (
+                    <p>Paste the content into Settings → Rules.</p>
+                  )}
+                  {selectedPlatform === "vscode-cline" && (
+                    <p>Paste the content into Custom Instructions in Cline settings.</p>
+                  )}
+                  {selectedPlatform === "langchain" && (
+                    <p>Load the file content into your agent&apos;s system prompt programmatically.</p>
+                  )}
+                </div>
+              )}
+            </div>
+
             <p className="muted" style={{ fontSize: 12, marginTop: 10, marginBottom: 0, wordBreak: "break-all" }}>
               Clipboard will include: <strong>Read {AICW_SKILL_MD_URL}</strong>
             </p>
@@ -983,6 +1041,7 @@ Read ${AICW_SKILL_MD_URL}
                 setShowSuccessModal(false);
                 setIssueSuccess(null);
                 setSuccessCopied(false);
+                setSelectedPlatform("");
               }}
             >
               Close
