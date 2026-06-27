@@ -27,8 +27,8 @@ import {
   type AicwWalletEntry,
   type ExplorerRow,
 } from "../../lib/explorerData";
+import { SOLANA_RPC, solscanTxUrl } from "../../lib/solanaCluster";
 
-const SOLANA_RPC = process.env.NEXT_PUBLIC_SOLANA_RPC || "https://api.devnet.solana.com";
 const AICW_PROGRAM_ID = new PublicKey(
   process.env.NEXT_PUBLIC_AICW_PROGRAM_ID || "9RUEw4jcMi8xcGf3tJRCAdzUzLuhEurts8Z2QQLsRbaV"
 );
@@ -351,7 +351,7 @@ export default function ExplorerPage() {
       // Open Solscan for first successful transfer
       const firstSuccess = transfers.find((t: { success?: boolean; signature?: string }) => t.success && t.signature);
       if (firstSuccess?.signature) {
-        window.open(`https://solscan.io/tx/${firstSuccess.signature}?cluster=devnet`, "_blank");
+        window.open(solscanTxUrl(firstSuccess.signature), "_blank");
       }
 
       void onRefreshRow(aicwPda);

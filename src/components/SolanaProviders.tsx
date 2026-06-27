@@ -8,11 +8,11 @@ import {
 import { WalletModalProvider } from "@solana/wallet-adapter-react-ui";
 import { LedgerWalletAdapter } from "@solana/wallet-adapter-ledger";
 import type { WalletError } from "@solana/wallet-adapter-base";
+import { SOLANA_RPC } from "@/lib/solanaCluster";
 
 import "@solana/wallet-adapter-react-ui/styles.css";
 
-const RPC_ENDPOINT =
-  process.env.NEXT_PUBLIC_SOLANA_RPC ?? "https://api.devnet.solana.com";
+const RPC_ENDPOINT = SOLANA_RPC;
 
 export function SolanaProviders({ children }: { children: React.ReactNode }) {
   // Phantom, Solflare, Backpack 등 Wallet Standard 호환 지갑은 자동 감지됨.

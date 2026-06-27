@@ -16,7 +16,10 @@ const IDL_PATH = path.join(ROOT, "src", "idl", "aicw.json");
 const ISSUER_REGION_MEMO_PREFIX = "aicw-reg:";
 const MEMO_PROGRAM_ID = new PublicKey("MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr");
 
-const RPC = process.env.NEXT_PUBLIC_SOLANA_RPC || "https://api.devnet.solana.com";
+const RPC =
+  process.env.SOLANA_RPC_URL?.trim() ||
+  process.env.NEXT_PUBLIC_SOLANA_RPC?.trim() ||
+  "https://api.devnet.solana.com";
 const PROGRAM_ID = new PublicKey(
   process.env.NEXT_PUBLIC_AICW_PROGRAM_ID || "9RUEw4jcMi8xcGf3tJRCAdzUzLuhEurts8Z2QQLsRbaV",
 );
@@ -174,7 +177,22 @@ async function main() {
   );
 }
 
+function isRpcAuthError(err) {
+  const msg = err instanceof Error ? err.message : String(err);
+  return /401|403|invalid api key|unauthorized/i.test(msg);
+}
+
 main().catch((err) => {
+  if (isRpcAuthError(err)) {
+    console.warn(
+      "[index-issuer-regions] RPC auth failed (check SOLANA_RPC_URL / NEXT_PUBLIC_SOLANA_RPC in Vercel) — skipping indexer",
+    );
+    if (!fs.existsSync(OUT_PATH)) {
+      fs.mkdirSync(path.dirname(OUT_PATH), { recursive: true });
+      fs.writeFileSync(OUT_PATH, "{}\n", "utf8");
+    }
+    process.exit(0);
+  }
   console.error("[index-issuer-regions] failed:", err);
   process.exit(1);
 });

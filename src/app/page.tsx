@@ -28,14 +28,12 @@ import {
 import { AppNav } from "../components/AppNav";
 import { AICW_SKILL_MD_URL } from "../lib/publicUrls";
 import { requestWalletDrop } from "../lib/requestWalletDrop";
+import { getClusterLabel, SOLANA_RPC } from "../lib/solanaCluster";
 
 const ISSUER_HANDOFF_DOCS_URL =
   process.env.NEXT_PUBLIC_ISSUER_HANDOFF_DOCS_URL?.trim() ?? "";
 
-const DEFAULT_MPC_NETWORK = "solana-devnet";
-
-const RPC =
-  process.env.NEXT_PUBLIC_SOLANA_RPC ?? "https://api.devnet.solana.com";
+const RPC = SOLANA_RPC;
 const AICW_PROGRAM_ID = new PublicKey(
   process.env.NEXT_PUBLIC_AICW_PROGRAM_ID ??
     "9RUEw4jcMi8xcGf3tJRCAdzUzLuhEurts8Z2QQLsRbaV",
@@ -73,7 +71,7 @@ function detectNetwork(rpcUrl: string): string {
   if (url.includes("testnet")) return "Testnet";
   if (url.includes("mainnet")) return "Mainnet";
   if (url.includes("localhost") || url.includes("127.0.0.1")) return "Localnet";
-  return "Custom";
+  return getClusterLabel();
 }
 
 /** Rich console output for Anchor / web3 send failures (often wrapped in Proxy). */

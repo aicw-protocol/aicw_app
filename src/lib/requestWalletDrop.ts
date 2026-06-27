@@ -1,4 +1,6 @@
-/** Client: request devnet SOL drop after confirmed issue_wallet (static export → drop URL). */
+/** Client: request optional SOL drop after confirmed issue_wallet (devnet/test only). */
+
+import { isMainnet } from "./solanaCluster";
 
 export type WalletIssuedClientPayload = {
   txSignature: string;
@@ -19,6 +21,11 @@ function dropPostUrl(): string | null {
 export async function requestWalletDrop(
   payload: WalletIssuedClientPayload,
 ): Promise<void> {
+  if (isMainnet()) {
+    console.info("[AICW] Mainnet — skip automatic SOL drop");
+    return;
+  }
+
   const dropUrl = dropPostUrl();
   if (!dropUrl) {
     console.warn(
