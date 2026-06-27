@@ -899,19 +899,23 @@ Read ${AICW_SKILL_MD_URL}
               <p className="modal-cost-label">Account creation + network fee (estimate)</p>
               <div className="modal-cost-row">
                 <span>AICWallet account rent</span>
-                <span>~0.004 SOL</span>
+                <span>~0.0028 SOL</span>
               </div>
               <div className="modal-cost-row">
                 <span>AIWill account rent</span>
-                <span>~0.005 SOL</span>
+                <span>~0.0036 SOL</span>
               </div>
               <div className="modal-cost-row">
                 <span>Network fee</span>
-                <span>~0.000005 SOL</span>
+                <span>~0.0001 SOL (variable)</span>
+              </div>
+              <div className="modal-cost-row">
+                <span>Protocol fee (node network)</span>
+                <span>0.0000 SOL (waived during beta)</span>
               </div>
               <div className="modal-cost-row modal-cost-total">
                 <span>Total</span>
-                <span>~0.009 SOL</span>
+                <span>~0.0065 SOL</span>
               </div>
             </div>
 
