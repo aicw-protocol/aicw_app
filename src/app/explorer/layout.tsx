@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { getClusterLabel } from "@/lib/solanaCluster";
+import { getClusterLabel } from "../../lib/solanaCluster";
 
 const NETWORK = getClusterLabel();
 

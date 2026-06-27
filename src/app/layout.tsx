@@ -3,7 +3,7 @@ import "@fontsource-variable/mona-sans/index.css";
 import "@fortawesome/fontawesome-free/css/all.min.css";
 import type { Metadata } from "next";
 import { ClientProviders } from "./ClientProviders";
-import { getClusterLabel } from "@/lib/solanaCluster";
+import { getClusterLabel } from "../lib/solanaCluster";
 
 const NETWORK = getClusterLabel();
 

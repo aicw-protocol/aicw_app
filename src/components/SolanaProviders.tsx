@@ -8,7 +8,7 @@ import {
 import { WalletModalProvider } from "@solana/wallet-adapter-react-ui";
 import { LedgerWalletAdapter } from "@solana/wallet-adapter-ledger";
 import type { WalletError } from "@solana/wallet-adapter-base";
-import { SOLANA_RPC } from "@/lib/solanaCluster";
+import { SOLANA_RPC } from "../lib/solanaCluster";
 
 import "@solana/wallet-adapter-react-ui/styles.css";
 
