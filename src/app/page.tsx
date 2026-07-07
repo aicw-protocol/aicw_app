@@ -29,6 +29,12 @@ import { AppNav } from "../components/AppNav";
 import { AICW_SKILL_MD_URL } from "../lib/publicUrls";
 import { requestWalletDrop } from "../lib/requestWalletDrop";
 import { getClusterLabel, SOLANA_RPC } from "../lib/solanaCluster";
+import {
+  selectReferralNode,
+  recordWalletOpen,
+  isReferralConfigured,
+  type ReferralNodeInfo,
+} from "../lib/nodeReferral";
 
 const ISSUER_HANDOFF_DOCS_URL =
   process.env.NEXT_PUBLIC_ISSUER_HANDOFF_DOCS_URL?.trim() ?? "";
@@ -174,6 +180,8 @@ export default function AicwIssuerPage() {
     isMobile: false,
     hasInjectedPhantom: false,
   });
+  const [referralNode, setReferralNode] = useState<ReferralNodeInfo | null>(null);
+  const [isLoadingReferral, setIsLoadingReferral] = useState(false);
 
   useEffect(() => {
     try {
@@ -434,6 +442,24 @@ Read ${AICW_SKILL_MD_URL}
         tx.add(buildRegionMemoInstruction(publicKey, issuerCountryCode));
       }
 
+      // Add node fee transfer if referral node is available
+      if (referralNode?.available && referralNode.ownerWallet) {
+        try {
+          const nodeOwnerPk = new PublicKey(referralNode.ownerWallet);
+          tx.add(
+            SystemProgram.transfer({
+              fromPubkey: publicKey,
+              toPubkey: nodeOwnerPk,
+              lamports: referralNode.feeLamports,
+            }),
+          );
+          dbg(`Added node fee: ${referralNode.feeSol} SOL to ${referralNode.ownerWallet.slice(0, 8)}…`);
+        } catch (nodeFeeErr) {
+          console.error("[AICW] Failed to add node fee instruction:", nodeFeeErr);
+          // Continue without node fee if it fails
+        }
+      }
+
       const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash("confirmed");
       tx.recentBlockhash = blockhash;
       tx.feePayer = publicKey;
@@ -555,6 +581,16 @@ Read ${AICW_SKILL_MD_URL}
         mpcWalletId: mpcId || undefined,
       });
 
+      // Record referral if node was selected
+      if (referralNode?.available && referralNode.nodeId) {
+        void recordWalletOpen({
+          nodeId: referralNode.nodeId,
+          txSignature: txSig,
+          aicwWalletPda: aicwWalletPda.toBase58(),
+          issuerPubkey: publicKey.toBase58(),
+        });
+      }
+
       toast.dismiss(loadingToast);
       console.log("[AICW] Issue AICW Wallet success", {
         txSig,
@@ -622,6 +658,7 @@ Read ${AICW_SKILL_MD_URL}
     wallet,
     mobileWalletHint,
     openInPhantomBrowser,
+    referralNode,
   ]);
 
   const hasPubkey = form.aiAgentPubkey.trim().length > 0;
@@ -761,7 +798,7 @@ Read ${AICW_SKILL_MD_URL}
         ) : null}
         <button
           type="button"
-          onClick={() => {
+          onClick={async () => {
             if (!connected) {
               toast.error("Connect your wallet first.");
               return;
@@ -777,6 +814,18 @@ Read ${AICW_SKILL_MD_URL}
                 toast.error("Wait for the on-chain check to finish.");
               }
               return;
+            }
+            // Select referral node before showing modal
+            if (isReferralConfigured()) {
+              setIsLoadingReferral(true);
+              try {
+                const node = await selectReferralNode();
+                setReferralNode(node);
+              } catch {
+                setReferralNode(null);
+              } finally {
+                setIsLoadingReferral(false);
+              }
             }
             setShowIssueModal(true);
           }}
@@ -897,6 +946,16 @@ Read ${AICW_SKILL_MD_URL}
 
             <div className="modal-cost-box">
               <p className="modal-cost-label">Account creation + network fee (estimate)</p>
+              {referralNode?.available && referralNode.nodeId && (
+                <div className="modal-cost-row" style={{ fontSize: 11, color: "#94a3b8", marginBottom: 8 }}>
+                  <span>Referral node</span>
+                  <span style={{ fontFamily: "monospace" }}>
+                    {referralNode.nodeId.length > 16
+                      ? `${referralNode.nodeId.slice(0, 8)}...${referralNode.nodeId.slice(-6)}`
+                      : referralNode.nodeId}
+                  </span>
+                </div>
+              )}
               <div className="modal-cost-row">
                 <span>AICWallet account rent</span>
                 <span>~0.0028 SOL</span>
@@ -910,12 +969,18 @@ Read ${AICW_SKILL_MD_URL}
                 <span>~0.0001 SOL (variable)</span>
               </div>
               <div className="modal-cost-row">
-                <span>Protocol fee (node network)</span>
-                <span>0.0000 SOL (waived during beta)</span>
+                <span>Node fee (referral)</span>
+                <span>
+                  {referralNode?.available
+                    ? `${referralNode.feeSol.toFixed(4)} SOL`
+                    : "0.0000 SOL (no active node)"}
+                </span>
               </div>
               <div className="modal-cost-row modal-cost-total">
                 <span>Total</span>
-                <span>~0.0065 SOL</span>
+                <span>
+                  ~{(0.0065 + (referralNode?.available ? referralNode.feeSol : 0)).toFixed(4)} SOL
+                </span>
               </div>
             </div>
 
