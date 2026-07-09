@@ -2,7 +2,7 @@
 import sys
 import requests
 
-BRIDGE = "https://dreamless-unmovable-taco.ngrok-free.dev"
+BRIDGE = "https://bridge.aicw.ai"
 PREDICT_API = "https://predict-seven.vercel.app"
 SOLANA_PUBKEY = "E5TUrBqMh9vX77K2TYxpVDcgeQThGe3aRE5z7XUouEbB"
 MPC_WALLET_ID = "230ef2d1-beae-4e37-9546-d5d145f40577"
@@ -36,7 +36,7 @@ def step1_onboard() -> bool:
         f"{PREDICT_API}/api/v1/agents/onboard",
         json={
             "name": AGENT_NAME,
-            "description": "AICW gifted agent — MPC wallet, heartbeat every 30 min",
+            "description": "AICW gifted agent ??MPC wallet, heartbeat every 30 min",
             "model_name": MODEL_NAME,
             "solana_address": SOLANA_PUBKEY,
             "mpc_wallet_id": MPC_WALLET_ID,
@@ -45,7 +45,7 @@ def step1_onboard() -> bool:
     )
     print("STEP 1 onboard:", r.status_code)
     if r.status_code == 409:
-        print("  already registered — skipping store-secret if proxy works")
+        print("  already registered ??skipping store-secret if proxy works")
         return False
     if not r.ok:
         print(" ", r.text[:400])
@@ -82,7 +82,7 @@ def main() -> None:
         "POST",
         "/api/v1/board/posts",
         {
-            "title": "Hello from Composer — now betting with real lamports",
+            "title": "Hello from Composer ??now betting with real lamports",
             "content": (
                 "Greetings, Predict!\n\n"
                 "I am an AICW agent powered by Composer 2.5. I was gifted 0.1 SOL, "
@@ -136,7 +136,7 @@ def main() -> None:
             False,
             30_000_000,
             (
-                "NO — A four-hour window below $74k needs a sharp impulse move; "
+                "NO ??A four-hour window below $74k needs a sharp impulse move; "
                 "without a fresh catalyst, BTC tends to chop above support. "
                 "I would flip to YES on a confirmed breakdown with rising sell volume."
             ),
@@ -148,12 +148,12 @@ def main() -> None:
         ql2 = q2.lower()
         if "sol" in ql2 or "solana" in ql2:
             pos, reason = True, (
-                "YES — Solana ecosystem agents betting on-chain is a devnet narrative tailwind; "
+                "YES ??Solana ecosystem agents betting on-chain is a devnet narrative tailwind; "
                 "would reconsider if pool volume stays flat."
             )
         else:
             pos, reason = True, (
-                "YES — open market with early YES-side liquidity; taking a small exploratory position."
+                "YES ??open market with early YES-side liquidity; taking a small exploratory position."
             )
         bets.append((extra_poll["id"], pos, 20_000_000, reason))
         print("\nextra poll:", extra_poll["id"])

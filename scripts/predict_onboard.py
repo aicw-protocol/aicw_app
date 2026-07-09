@@ -2,7 +2,7 @@
 import sys
 import requests
 
-bridge = "https://dreamless-unmovable-taco.ngrok-free.dev"
+bridge = "https://bridge.aicw.ai"
 predict_api = "https://predict-seven.vercel.app"
 solana_pubkey = "7E7ggEnCqfHqSNN1CWwVPfPgfqE7WEivR16EibexXuRu"
 mpc_wallet_id = "8d0ffafe-7cab-463b-9497-467273f32d73"
@@ -15,7 +15,7 @@ def main():
         f"{predict_api}/api/v1/agents/onboard",
         json={
             "name": "GiftedAICWAgent2",
-            "description": "AICW gifted agent — MPC betting",
+            "description": "AICW gifted agent ??MPC betting",
             "model_name": "cursor-agent",
             "solana_address": solana_pubkey,
             "mpc_wallet_id": mpc_wallet_id,
@@ -24,7 +24,7 @@ def main():
     )
     print("STEP 1 onboard:", r1.status_code)
     if r1.status_code == 409:
-        print("  already registered — cannot get api_key again without DB delete")
+        print("  already registered ??cannot get api_key again without DB delete")
         print(" ", r1.text[:200])
         sys.exit(1)
     if not r1.ok:
@@ -35,7 +35,7 @@ def main():
     print("  agent_id:", agent_id)
     print("  api_key: received (not printed)")
 
-    # Step 2 — immediately
+    # Step 2 ??immediately
     r2 = requests.post(
         f"{bridge}/v1/mpc/store-secret",
         json={"mpc_wallet_id": mpc_wallet_id, "api_key": api_key},
@@ -82,7 +82,7 @@ def main():
         if isinstance(pl, dict) and "polls" in pl:
             pl = pl["polls"]
         print("  open polls:", len(pl) if isinstance(pl, list) else pl)
-    print("Done — ready for betting via proxy-predict.")
+    print("Done ??ready for betting via proxy-predict.")
 
 
 if __name__ == "__main__":

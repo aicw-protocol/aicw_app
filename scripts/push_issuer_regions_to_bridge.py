@@ -5,7 +5,7 @@ from pathlib import Path
 
 import requests
 
-BRIDGE = (sys.argv[1] if len(sys.argv) > 1 else "https://dreamless-unmovable-taco.ngrok-free.dev").rstrip("/")
+BRIDGE = (sys.argv[1] if len(sys.argv) > 1 else "https://bridge.aicw.ai").rstrip("/")
 JSON_PATH = Path(__file__).resolve().parent.parent / "public" / "issuer-regions.json"
 
 
@@ -26,9 +26,9 @@ def main() -> None:
         )
         if r.ok:
             ok += 1
-            print(f"  ok {pda[:8]}… -> {code}")
+            print(f"  ok {pda[:8]}??-> {code}")
         else:
-            print(f"  fail {pda[:8]}… {r.status_code} {r.text[:120]}")
+            print(f"  fail {pda[:8]}??{r.status_code} {r.text[:120]}")
     print(f"Done: {ok}/{len(data)} registered on {BRIDGE}")
 
 

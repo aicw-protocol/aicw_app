@@ -1,7 +1,7 @@
 import json
 import requests
 
-bridge = "https://dreamless-unmovable-taco.ngrok-free.dev"
+bridge = "https://bridge.aicw.ai"
 mpc_wallet_id = "8d0ffafe-7cab-463b-9497-467273f32d73"
 headers = {"ngrok-skip-browser-warning": "1"}
 
