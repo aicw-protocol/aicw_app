@@ -3,12 +3,12 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev -p 4002",
+    "dev": "node ../aicw/scripts/next-dev.mjs aicw_app",
     "index:issuer-regions": "node scripts/index-issuer-regions.mjs",
     "build": "node scripts/index-issuer-regions.mjs && next build",
     "build:root-static": "node scripts/next-build-root.mjs",
     "export:nested-preview": "node scripts/nested-static-preview.mjs",
-    "start": "next start -p 4002",
+    "start": "node ../aicw/scripts/next-start.mjs aicw_app",
     "lint": "next lint"
   },
   "dependencies": {
