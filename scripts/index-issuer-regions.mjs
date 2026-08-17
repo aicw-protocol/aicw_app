@@ -133,7 +133,20 @@ function loadExisting() {
   }
 }
 
+function skipIndexer(reason) {
+  console.log(`[index-issuer-regions] skipped (${reason})`);
+  if (!fs.existsSync(OUT_PATH)) {
+    fs.mkdirSync(path.dirname(OUT_PATH), { recursive: true });
+    fs.writeFileSync(OUT_PATH, "{}\n", "utf8");
+  }
+}
+
 async function main() {
+  if (/^(1|true|yes)$/i.test(process.env.SKIP_ISSUER_REGION_INDEX?.trim() ?? "")) {
+    skipIndexer("SKIP_ISSUER_REGION_INDEX");
+    return;
+  }
+
   const idl = JSON.parse(fs.readFileSync(IDL_PATH, "utf8"));
   const connection = new Connection(RPC, "confirmed");
   const wallet = {
@@ -182,15 +195,24 @@ function isRpcAuthError(err) {
   return /401|403|invalid api key|unauthorized/i.test(msg);
 }
 
+function isRpcRateLimitError(err) {
+  const msg = err instanceof Error ? err.message : String(err);
+  return /429|too many requests/i.test(msg);
+}
+
 main().catch((err) => {
   if (isRpcAuthError(err)) {
     console.warn(
       "[index-issuer-regions] RPC auth failed (check SOLANA_RPC_URL / NEXT_PUBLIC_SOLANA_RPC in Vercel) — skipping indexer",
     );
-    if (!fs.existsSync(OUT_PATH)) {
-      fs.mkdirSync(path.dirname(OUT_PATH), { recursive: true });
-      fs.writeFileSync(OUT_PATH, "{}\n", "utf8");
-    }
+    skipIndexer("RPC auth failed");
+    process.exit(0);
+  }
+  if (isRpcRateLimitError(err)) {
+    console.warn(
+      "[index-issuer-regions] RPC rate limited — using committed public/issuer-regions.json",
+    );
+    skipIndexer("RPC rate limited");
     process.exit(0);
   }
   console.error("[index-issuer-regions] failed:", err);
