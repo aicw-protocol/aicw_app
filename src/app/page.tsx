@@ -716,6 +716,12 @@ Read ${AICW_SKILL_MD_URL}
           <span className="hero-title-sub">AI-Controlled Wallet Standard</span>
         </h1>
         <p>Give your AI its own wallet. No human override. Ever.</p>
+        <p className="issue-close-wallet-link">
+          Already issued a wallet?{" "}
+          <Link href="/explorer" prefetch={false}>
+            Close wallet &amp; reclaim rent in Explorer
+          </Link>
+        </p>
       </section>
 
       <section className="section">
@@ -1128,7 +1134,7 @@ Read ${AICW_SKILL_MD_URL}
               style={{ width: "100%", marginTop: 12 }}
               onClick={() => setShowReclaimModal(true)}
             >
-              Reclaim rent (~0.0064 SOL)
+              Close wallet &amp; reclaim rent
             </button>
 
             <button

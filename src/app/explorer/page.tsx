@@ -414,8 +414,8 @@ export default function ExplorerPage() {
       <section className="hero">
         <h1>AICW Explorer</h1>
         <p>
-          Read-only overview of issued AI agent wallets: issuance records, balances, wills,
-          heartbeats, and on-chain activity in one place.
+          Issued wallets, balances, wills, and activity. Connect your <strong>issuer</strong> wallet
+          (top right), find your row, then use <strong>Close wallet</strong> to reclaim account rent.
         </p>
       </section>
 
@@ -449,6 +449,9 @@ export default function ExplorerPage() {
           <p className="muted explorer-count">
             {filteredSorted.length} wallet{filteredSorted.length === 1 ? "" : "s"} — page{" "}
             {pageClamped}/{totalPages} ({EXPLORER_PAGE_SIZE} per page)
+            {!connectedIssuer ? (
+              <span className="explorer-close-hint"> — connect issuer wallet to enable Close wallet</span>
+            ) : null}
           </p>
         ) : null}
       </section>
@@ -542,8 +545,8 @@ export default function ExplorerPage() {
                       </span>
                       <span className="visually-hidden">Refresh</span>
                     </th>
-                    <th scope="col" className="explorer-th-action" title="Reclaim rent — issuer closes wallet via MPC">
-                      Rent
+                    <th scope="col" className="explorer-th-action" title="Close wallet — reclaim AICWallet + AIWill rent to issuer">
+                      Close
                     </th>
                   </tr>
                 </thead>
@@ -705,13 +708,13 @@ export default function ExplorerPage() {
                           className="explorer-reclaim-btn"
                           title={
                             canReclaimWalletRentAsIssuer(row, connectedIssuer)
-                              ? "Close wallet and return rent to issuer (~0.0064 SOL + any PDA balance)"
-                              : "Connect the issuer wallet that created this AICW wallet"
+                              ? "Close wallet and return rent to issuer"
+                              : "Connect the issuer wallet that created this row"
                           }
                           disabled={!canReclaimWalletRentAsIssuer(row, connectedIssuer)}
                           onClick={() => setReclaimTarget(row)}
                         >
-                          Reclaim
+                          Close
                         </button>
                       </td>
                     </tr>

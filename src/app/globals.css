@@ -1227,6 +1227,20 @@ a {
   color: var(--muted);
 }
 
+.issue-close-wallet-link {
+  margin-top: 12px;
+  font-size: 14px;
+}
+
+.issue-close-wallet-link a {
+  color: #6ee7b7;
+  text-decoration: underline;
+}
+
+.explorer-close-hint {
+  color: #fcd34d;
+}
+
 .section {
   margin-top: 14px;
   padding: 18px;

@@ -72,7 +72,7 @@ export function ReclaimRentModal({
       }}
     >
       <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-        <h3 className="modal-title">Reclaim account rent</h3>
+        <h3 className="modal-title">Close wallet &amp; reclaim rent</h3>
         <p className="modal-success-notice">
           Closes the AICWallet and AIWill accounts. About <strong>0.0064 SOL</strong> in account rent
           (plus any remaining PDA balance) returns to your issuer wallet. Requires MPC signing (AI
@@ -98,7 +98,7 @@ export function ReclaimRentModal({
             Cancel
           </button>
           <button type="button" className="btn primary modal-issue-btn" disabled={busy} onClick={() => void onConfirm()}>
-            {busy ? "Closing…" : "Reclaim rent"}
+            {busy ? "Closing…" : "Close wallet"}
           </button>
         </div>
       </div>
