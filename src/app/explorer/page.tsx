@@ -11,6 +11,7 @@ const twitterUrl = "https://x.com/AICW_Protocol";
 import {
   EXPLORER_PAGE_SIZE,
   aicwEntryMatchesQuery,
+  canReclaimWalletRent,
   deathCountdown,
   formatUnix,
   formatUnixShort,
@@ -28,6 +29,15 @@ import {
   type ExplorerRow,
 } from "../../lib/explorerData";
 import { SOLANA_RPC, solscanTxUrl } from "../../lib/solanaCluster";
+import { canReclaimWalletRentAsIssuer } from "../../lib/closeWallet";
+import { ReclaimRentModal } from "../../components/ReclaimRentModal";
+import dynamic from "next/dynamic";
+import { useWallet } from "@solana/wallet-adapter-react";
+
+const WalletMultiButton = dynamic(
+  () => import("@solana/wallet-adapter-react-ui").then((mod) => mod.WalletMultiButton),
+  { ssr: false },
+);
 
 const AICW_PROGRAM_ID = new PublicKey(
   process.env.NEXT_PUBLIC_AICW_PROGRAM_ID || "9RUEw4jcMi8xcGf3tJRCAdzUzLuhEurts8Z2QQLsRbaV"
@@ -88,6 +98,8 @@ function StaticTh({ abbrev, tooltip, className }: { abbrev: string; tooltip: str
 }
 
 export default function ExplorerPage() {
+  const { publicKey } = useWallet();
+  const connectedIssuer = publicKey?.toBase58() ?? null;
   const [coreEntries, setCoreEntries] = useState<AicwWalletEntry[]>([]);
   const [pageRows, setPageRows] = useState<ExplorerRow[]>([]);
   const [loadingCore, setLoadingCore] = useState(true);
@@ -98,6 +110,7 @@ export default function ExplorerPage() {
   const [refreshingPdas, setRefreshingPdas] = useState<Set<string>>(new Set());
   const [countdownTick, setCountdownTick] = useState(0);
   const [executingPdas, setExecutingPdas] = useState<Set<string>>(new Set());
+  const [reclaimTarget, setReclaimTarget] = useState<ExplorerRow | null>(null);
   const [isNavMenuOpen, setIsNavMenuOpen] = useState(false);
   const pageRowsRef = useRef(pageRows);
   pageRowsRef.current = pageRows;
@@ -383,6 +396,9 @@ export default function ExplorerPage() {
             <AppNav isMenuOpen={isNavMenuOpen} onMenuToggle={setIsNavMenuOpen} />
           </div>
           <div className="top-nav-right">
+            <div className="explorer-wallet-connect">
+              <WalletMultiButton />
+            </div>
             <button
               type="button"
               className="hamburger-btn"
@@ -526,6 +542,9 @@ export default function ExplorerPage() {
                         <i className="fa-solid fa-arrows-rotate" />
                       </span>
                       <span className="visually-hidden">Refresh</span>
+                    </th>
+                    <th scope="col" className="explorer-th-action" title="Reclaim rent — issuer only, unused wallets">
+                      Rent
                     </th>
                   </tr>
                 </thead>
@@ -681,6 +700,25 @@ export default function ExplorerPage() {
                           />
                         </button>
                       </td>
+                      <td>
+                        {canReclaimWalletRent(row) ? (
+                          <button
+                            type="button"
+                            className="explorer-reclaim-btn"
+                            title={
+                              canReclaimWalletRentAsIssuer(row, connectedIssuer)
+                                ? "Close wallet and return ~0.0064 SOL rent to issuer"
+                                : "Connect the issuer wallet that created this AICW wallet"
+                            }
+                            disabled={!canReclaimWalletRentAsIssuer(row, connectedIssuer)}
+                            onClick={() => setReclaimTarget(row)}
+                          >
+                            Reclaim
+                          </button>
+                        ) : (
+                          <span className="muted">—</span>
+                        )}
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -696,6 +734,19 @@ export default function ExplorerPage() {
           </>
         )}
       </section>
+
+      {reclaimTarget ? (
+        <ReclaimRentModal
+          open
+          aiAgentPubkey={reclaimTarget.aiAgentPubkey}
+          issuerPubkey={reclaimTarget.issuerPubkey}
+          aicwPda={reclaimTarget.aicwPda}
+          onClose={() => setReclaimTarget(null)}
+          onSuccess={() => {
+            void loadCore();
+          }}
+        />
+      ) : null}
 
       <footer className="site-footer">
         <div className="footer-content">

@@ -860,6 +860,36 @@ a {
   cursor: not-allowed;
 }
 
+.explorer-reclaim-btn {
+  font-size: 11px;
+  padding: 4px 8px;
+  border-radius: 6px;
+  border: 1px solid rgba(52, 211, 153, 0.45);
+  background: rgba(16, 185, 129, 0.12);
+  color: #6ee7b7;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.explorer-reclaim-btn:hover:not(:disabled) {
+  background: rgba(16, 185, 129, 0.22);
+}
+
+.explorer-reclaim-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.explorer-wallet-connect {
+  margin-right: 8px;
+}
+
+.explorer-wallet-connect .wallet-adapter-button {
+  height: 36px !important;
+  font-size: 12px !important;
+  padding: 0 12px !important;
+}
+
 .explorer-reg {
   text-align: center;
   vertical-align: middle;

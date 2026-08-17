@@ -35,6 +35,8 @@ import {
   isReferralConfigured,
   type ReferralNodeInfo,
 } from "../lib/nodeReferral";
+import { saveMpcWalletIdForAgent } from "../lib/mpcWalletStorage";
+import { ReclaimRentModal } from "../components/ReclaimRentModal";
 
 const ISSUER_HANDOFF_DOCS_URL =
   process.env.NEXT_PUBLIC_ISSUER_HANDOFF_DOCS_URL?.trim() ?? "";
@@ -161,7 +163,10 @@ export default function AicwIssuerPage() {
     txSig: string;
     aiPubkey: string;
     mpcWalletId: string;
+    aicwPda: string;
+    issuerPubkey: string;
   } | null>(null);
+  const [showReclaimModal, setShowReclaimModal] = useState(false);
   const [successCopied, setSuccessCopied] = useState(false);
   const [selectedPlatform, setSelectedPlatform] = useState<string>("");
   const [aicwExistsOnChain, setAicwExistsOnChain] = useState<boolean | null>(null);
@@ -564,7 +569,10 @@ Read ${AICW_SKILL_MD_URL}
         txSig,
         aiPubkey: pk,
         mpcWalletId: mpcId,
+        aicwPda: aicwWalletPda.toBase58(),
+        issuerPubkey: publicKey.toBase58(),
       });
+      saveMpcWalletIdForAgent(pk, mpcId);
       setSuccessCopied(false);
       setShowSuccessModal(true);
 
@@ -619,7 +627,10 @@ Read ${AICW_SKILL_MD_URL}
               txSig: recoveredSig,
               aiPubkey: pk,
               mpcWalletId: mpcId,
+              aicwPda: aicwWalletPda.toBase58(),
+              issuerPubkey: publicKey.toBase58(),
             });
+            saveMpcWalletIdForAgent(pk, mpcId);
             setSuccessCopied(false);
             setShowSuccessModal(true);
             setForm({
@@ -1113,6 +1124,15 @@ Read ${AICW_SKILL_MD_URL}
 
             <button
               type="button"
+              className="btn modal-copy-btn"
+              style={{ width: "100%", marginTop: 12 }}
+              onClick={() => setShowReclaimModal(true)}
+            >
+              Reclaim rent (~0.0064 SOL)
+            </button>
+
+            <button
+              type="button"
               className="btn primary"
               style={{ width: "100%", marginTop: 12 }}
               disabled={!successCopied}
@@ -1128,6 +1148,22 @@ Read ${AICW_SKILL_MD_URL}
           </div>
         </div>
       )}
+
+      {showReclaimModal && issueSuccess ? (
+        <ReclaimRentModal
+          open
+          aiAgentPubkey={issueSuccess.aiPubkey}
+          issuerPubkey={issueSuccess.issuerPubkey}
+          aicwPda={issueSuccess.aicwPda}
+          initialMpcWalletId={issueSuccess.mpcWalletId}
+          onClose={() => setShowReclaimModal(false)}
+          onSuccess={() => {
+            setShowSuccessModal(false);
+            setIssueSuccess(null);
+            setShowReclaimModal(false);
+          }}
+        />
+      ) : null}
 
       {showAppRegisterModal && (
         <div className="modal-overlay" onClick={() => {
