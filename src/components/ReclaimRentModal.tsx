@@ -74,13 +74,13 @@ export function ReclaimRentModal({
       <div className="modal-content" onClick={(e) => e.stopPropagation()}>
         <h3 className="modal-title">Reclaim account rent</h3>
         <p className="modal-success-notice">
-          Closes the unused AICWallet and AIWill accounts. About <strong>0.0064 SOL</strong> returns
-          to your issuer wallet. Requires MPC signing (AI agent key) plus a small network fee on
-          the AI agent pubkey.
+          Closes the AICWallet and AIWill accounts. About <strong>0.0064 SOL</strong> in account rent
+          (plus any remaining PDA balance) returns to your issuer wallet. Requires MPC signing (AI
+          agent key) plus a small network fee on the AI agent pubkey.
         </p>
         <p className="muted" style={{ fontSize: 12, marginBottom: 12 }}>
-          Only wallets with zero transfers/rejects can be closed. The on-chain program must include{" "}
-          <code>close_wallet</code> (upgrade deployed).
+          Works regardless of prior transfers, rejects, will updates, or betting. DecisionLog account
+          rent is separate and not reclaimed. On-chain program must include <code>close_wallet</code>.
         </p>
         <div className="modal-success-field">
           <span className="modal-key-name">MPC wallet ID</span>

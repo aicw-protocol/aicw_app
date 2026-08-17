@@ -11,7 +11,6 @@ const twitterUrl = "https://x.com/AICW_Protocol";
 import {
   EXPLORER_PAGE_SIZE,
   aicwEntryMatchesQuery,
-  canReclaimWalletRent,
   deathCountdown,
   formatUnix,
   formatUnixShort,
@@ -543,7 +542,7 @@ export default function ExplorerPage() {
                       </span>
                       <span className="visually-hidden">Refresh</span>
                     </th>
-                    <th scope="col" className="explorer-th-action" title="Reclaim rent — issuer only, unused wallets">
+                    <th scope="col" className="explorer-th-action" title="Reclaim rent — issuer closes wallet via MPC">
                       Rent
                     </th>
                   </tr>
@@ -701,23 +700,19 @@ export default function ExplorerPage() {
                         </button>
                       </td>
                       <td>
-                        {canReclaimWalletRent(row) ? (
-                          <button
-                            type="button"
-                            className="explorer-reclaim-btn"
-                            title={
-                              canReclaimWalletRentAsIssuer(row, connectedIssuer)
-                                ? "Close wallet and return ~0.0064 SOL rent to issuer"
-                                : "Connect the issuer wallet that created this AICW wallet"
-                            }
-                            disabled={!canReclaimWalletRentAsIssuer(row, connectedIssuer)}
-                            onClick={() => setReclaimTarget(row)}
-                          >
-                            Reclaim
-                          </button>
-                        ) : (
-                          <span className="muted">—</span>
-                        )}
+                        <button
+                          type="button"
+                          className="explorer-reclaim-btn"
+                          title={
+                            canReclaimWalletRentAsIssuer(row, connectedIssuer)
+                              ? "Close wallet and return rent to issuer (~0.0064 SOL + any PDA balance)"
+                              : "Connect the issuer wallet that created this AICW wallet"
+                          }
+                          disabled={!canReclaimWalletRentAsIssuer(row, connectedIssuer)}
+                          onClick={() => setReclaimTarget(row)}
+                        >
+                          Reclaim
+                        </button>
                       </td>
                     </tr>
                   ))}

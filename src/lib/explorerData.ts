@@ -88,17 +88,6 @@ export function canFundExecuteWill(
   return row.balanceLamports > executeWillFeeLamports(row);
 }
 
-/** Unused wallet (no transfer/reject activity) eligible for close_wallet rent reclaim. */
-export function canReclaimWalletRent(row: Pick<
-  ExplorerRow,
-  "totalTransactions" | "decisionsMade" | "willExecuted"
->): boolean {
-  if (row.willExecuted) return false;
-  if (Number(row.totalTransactions) > 0) return false;
-  if (Number(row.decisionsMade) > 0) return false;
-  return true;
-}
-
 export interface ExplorerRow {
   /** AICW PDA */
   aicwPda: string;

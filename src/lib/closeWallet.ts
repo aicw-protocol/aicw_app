@@ -5,18 +5,7 @@ import {
   getAicwConnection,
   getReadOnlyAicwProgram,
 } from "./aicwChain";
-import { canReclaimWalletRent } from "./explorerData";
 import { mpcSignAndSendVersioned } from "./mpcSignSolana";
-
-type AicwWalletAccount = {
-  issuerPubkey: PublicKey;
-  totalTransactions: { toNumber(): number };
-  decisionsMade: { toNumber(): number };
-};
-
-type AiWillAccount = {
-  isExecuted: boolean;
-};
 
 export type CloseWalletParams = {
   aiAgentPubkey: string;
@@ -26,17 +15,11 @@ export type CloseWalletParams = {
 };
 
 export function canReclaimWalletRentAsIssuer(
-  row: {
-    issuerPubkey: string;
-    totalTransactions: string;
-    decisionsMade: string;
-    willExecuted: boolean;
-  },
+  row: { issuerPubkey: string },
   connectedIssuer: string | null | undefined,
 ): boolean {
   if (!connectedIssuer) return false;
-  if (connectedIssuer !== row.issuerPubkey) return false;
-  return canReclaimWalletRent(row);
+  return connectedIssuer === row.issuerPubkey;
 }
 
 export async function closeWalletAndReclaimRent(params: CloseWalletParams): Promise<string> {
@@ -51,21 +34,12 @@ export async function closeWalletAndReclaimRent(params: CloseWalletParams): Prom
   const connection = getAicwConnection();
   const program = getReadOnlyAicwProgram(connection);
   const accounts = program.account as unknown as {
-    aicWallet: { fetch(address: PublicKey): Promise<AicwWalletAccount> };
-    aiWill: { fetch(address: PublicKey): Promise<AiWillAccount> };
+    aicWallet: { fetch(address: PublicKey): Promise<{ issuerPubkey: PublicKey }> };
   };
 
   const walletAccount = await accounts.aicWallet.fetch(aicwWalletPda);
   if (walletAccount.issuerPubkey.toBase58() !== issuerPk.toBase58()) {
     throw new Error("Connected wallet is not the issuer for this AICW wallet.");
-  }
-  if (Number(walletAccount.totalTransactions) > 0 || Number(walletAccount.decisionsMade) > 0) {
-    throw new Error("Wallet has on-chain activity and cannot be closed.");
-  }
-
-  const willAccount = await accounts.aiWill.fetch(aiWillPda);
-  if (willAccount.isExecuted) {
-    throw new Error("Will already executed; wallet cannot be closed.");
   }
 
   const ix = await program.methods
