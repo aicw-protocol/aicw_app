@@ -5,7 +5,7 @@ RPC = "https://api.devnet.solana.com"
 AGENT = "GrhsZvYoM69Dtnp5xtgESqULSLVB3WsonRCc345rZtqS"
 AICW_PDA = "3FEuB7TBo9diXiXrnhr3SPrqMFgndkRfkHZzsaKYEkTD"
 AI_WILL_PDA = "CrqyNeR9V6bnYNHi2XdBKMAs7wqahRcRqDk6xYGsnMqp"
-PROGRAM_ID = "9RUEw4jcMi8xcGf3tJRCAdzUzLuhEurts8Z2QQLsRbaV"
+PROGRAM_ID = "FcWqrRLcAxwqAhMSGXabD8zEKqnPHsovBvcmLaH9hsVv"
 
 def rpc(method, params):
     r = requests.post(RPC, json={"jsonrpc":"2.0","id":1,"method":method,"params":params})

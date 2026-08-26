@@ -35,8 +35,9 @@ jobs:
           NEXT_STATIC_BASE_PATH: /aicw_app
           NEXT_PUBLIC_BASE_PATH: /aicw_app
           NEXT_PUBLIC_AICW_PUBLIC_ORIGIN: https://aicw-protocol.github.io/aicw_app
-          NEXT_PUBLIC_SOLANA_RPC: https://api.mainnet-beta.solana.com
-          NEXT_PUBLIC_AICW_PROGRAM_ID: 9RUEw4jcMi8xcGf3tJRCAdzUzLuhEurts8Z2QQLsRbaV
+          NEXT_PUBLIC_SOLANA_CLUSTER: devnet
+          NEXT_PUBLIC_SOLANA_RPC: https://devnet.helius-rpc.com/?api-key=184025eb-79d2-4515-bb83-01d895249a4d
+          NEXT_PUBLIC_AICW_PROGRAM_ID: FcWqrRLcAxwqAhMSGXabD8zEKqnPHsovBvcmLaH9hsVv
           NEXT_PUBLIC_MPC_BRIDGE_URL: https://bridge.aicw.ai
           NEXT_PUBLIC_AICW_SKILL_MD_URL: https://aicw-protocol.github.io/aicw_app/aicw_skill.md
           NEXT_PUBLIC_AICW_DROP_URL: ${{ secrets.AICW_DROP_PUBLIC_URL }}

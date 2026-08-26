@@ -6,7 +6,7 @@ import { SOLANA_RPC } from "./solanaCluster";
 export const AICW_RPC = SOLANA_RPC;
 
 export const AICW_PROGRAM_ID = new PublicKey(
-  process.env.NEXT_PUBLIC_AICW_PROGRAM_ID ?? "9RUEw4jcMi8xcGf3tJRCAdzUzLuhEurts8Z2QQLsRbaV",
+  process.env.NEXT_PUBLIC_AICW_PROGRAM_ID ?? "FcWqrRLcAxwqAhMSGXabD8zEKqnPHsovBvcmLaH9hsVv",
 );
 
 export function getAicwConnection(): Connection {
