@@ -28,6 +28,7 @@ import {
 import { AppNav } from "../components/AppNav";
 import { AICW_SKILL_MD_URL } from "../lib/publicUrls";
 import { requestWalletDrop } from "../lib/requestWalletDrop";
+import { AICW_PROGRAM_ID } from "../lib/aicwChain";
 import { getClusterLabel, SOLANA_RPC } from "../lib/solanaCluster";
 import {
   selectReferralNode,
@@ -42,10 +43,6 @@ const ISSUER_HANDOFF_DOCS_URL =
   process.env.NEXT_PUBLIC_ISSUER_HANDOFF_DOCS_URL?.trim() ?? "";
 
 const RPC = SOLANA_RPC;
-const AICW_PROGRAM_ID = new PublicKey(
-  process.env.NEXT_PUBLIC_AICW_PROGRAM_ID ??
-    "9RUEw4jcMi8xcGf3tJRCAdzUzLuhEurts8Z2QQLsRbaV",
-);
 const ISSUE_FORM_STORAGE_KEY = "aicw_issue_form_v1";
 
 async function sha256ModelHash(modelName: string): Promise<number[]> {
@@ -71,15 +68,6 @@ function getInjectedPhantomProvider() {
 
 function buildPhantomBrowserUrl(url: string, ref: string): string {
   return `https://phantom.app/ul/browse/${encodeURIComponent(url)}?ref=${encodeURIComponent(ref)}`;
-}
-
-function detectNetwork(rpcUrl: string): string {
-  const url = rpcUrl.toLowerCase();
-  if (url.includes("devnet")) return "Devnet";
-  if (url.includes("testnet")) return "Testnet";
-  if (url.includes("mainnet")) return "Mainnet";
-  if (url.includes("localhost") || url.includes("127.0.0.1")) return "Localnet";
-  return getClusterLabel();
 }
 
 /** Rich console output for Anchor / web3 send failures (often wrapped in Proxy). */
@@ -143,7 +131,7 @@ function formatIssueWalletError(err: unknown): string {
 export default function AicwIssuerPage() {
   const { publicKey, connected, signTransaction, signAllTransactions, sendTransaction, wallet } = useWallet();
   const { connection } = useConnection();
-  const network = detectNetwork(RPC);
+  const network = getClusterLabel();
   const [debugLogs, setDebugLogs] = useState<string[]>([]);
   const dbg = useCallback((msg: string) => {
     console.log("[AICW]", msg);

@@ -27,6 +27,7 @@ import {
   type AicwWalletEntry,
   type ExplorerRow,
 } from "../../lib/explorerData";
+import { AICW_PROGRAM_ID } from "../../lib/aicwChain";
 import { SOLANA_RPC, solscanTxUrl } from "../../lib/solanaCluster";
 import { canReclaimWalletRentAsIssuer } from "../../lib/closeWallet";
 import { ReclaimRentModal } from "../../components/ReclaimRentModal";
@@ -38,9 +39,6 @@ const WalletMultiButton = dynamic(
   { ssr: false },
 );
 
-const AICW_PROGRAM_ID = new PublicKey(
-  process.env.NEXT_PUBLIC_AICW_PROGRAM_ID || "9RUEw4jcMi8xcGf3tJRCAdzUzLuhEurts8Z2QQLsRbaV"
-);
 const EXECUTE_WILL_DISCRIMINATOR = Buffer.from([167, 64, 178, 63, 233, 123, 165, 124]);
 
 function shortPk(s: string): string {

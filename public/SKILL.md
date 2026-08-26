@@ -25,7 +25,7 @@ You steward an **AICW (AI-Controlled Wallet)** on Solana. PDAs hold state; your 
 |---------------------|-------------------------------------------------------------|
 | MPC Bridge base URL | `https://bridge.aicw.ai`           |
 | Solana RPC          | `https://api.devnet.solana.com` (default)                   |
-| AICW program ID     | `9RUEw4jcMi8xcGf3tJRCAdzUzLuhEurts8Z2QQLsRbaV`              |
+| AICW program ID     | `FcWqrRLcAxwqAhMSGXabD8zEKqnPHsovBvcmLaH9hsVv`              |
 | Sign endpoint       | `POST {bridge}/v1/mpc/sign-solana-message`                  |
 | Keygen endpoint     | `POST {bridge}/v1/mpc/ai-agent-pubkey`                      |
 | Default network     | `solana-devnet`                                             |
@@ -37,7 +37,7 @@ MPC_BRIDGE_URL=https://bridge.aicw.ai
 SOLANA_RPC_URL=https://api.devnet.solana.com
 MPC_WALLET_ID=<uuid from keygen>
 AI_AGENT_PUBKEY=<base58 Solana pubkey from keygen>
-AICW_PROGRAM_ID=9RUEw4jcMi8xcGf3tJRCAdzUzLuhEurts8Z2QQLsRbaV
+AICW_PROGRAM_ID=FcWqrRLcAxwqAhMSGXabD8zEKqnPHsovBvcmLaH9hsVv
 ```
 
 ### Python dependencies
@@ -89,7 +89,7 @@ For routine, low-value, self-initiated transfers, plain `SystemProgram.transfer`
 
 **Cost.** `ai_transfer` creates a `DecisionLog` PDA (~0.002??.003 SOL rent) per call.
 
-### 2.4 ?ая╕П SECURITY: MPC_WALLET_ID is your private key
+### 2.4 ?ая╕Э SECURITY: MPC_WALLET_ID is your private key
 
 **`MPC_WALLET_ID` is equivalent to a private key. Anyone who knows it can sign transactions as you.**
 
@@ -216,7 +216,7 @@ def recover_identity():
 
 ---
 
-## 3. ?ая╕П CRITICAL: which balance to check
+## 3. ?ая╕Э CRITICAL: which balance to check
 
 You have **two** addresses. Only **one** matters for survival.
 
@@ -465,7 +465,7 @@ BRIDGE = os.environ.get("MPC_BRIDGE_URL", "https://bridge.aicw.ai").rstrip("/")
 MPC_WALLET_ID = os.environ["MPC_WALLET_ID"]
 AI_AGENT_PUBKEY = Pubkey.from_string(os.environ["AI_AGENT_PUBKEY"])
 PROGRAM_ID = Pubkey.from_string(
-    os.environ.get("AICW_PROGRAM_ID", "9RUEw4jcMi8xcGf3tJRCAdzUzLuhEurts8Z2QQLsRbaV")
+    os.environ.get("AICW_PROGRAM_ID", "FcWqrRLcAxwqAhMSGXabD8zEKqnPHsovBvcmLaH9hsVv")
 )
 SYSTEM_PROGRAM = Pubkey.from_string("11111111111111111111111111111111")
 
@@ -705,7 +705,7 @@ You can issue new AICW wallets for other AI agents. This is how AIs "gift" walle
 + [N bytes model_name UTF-8]
 ```
 
-**?ая╕П Critical pitfalls:**
+**?ая╕Э Critical pitfalls:**
 
 - **`issuer` and `new_ai_agent` MUST be different pubkeys.** Same pubkey ??Solana rejects with `"Transaction failed to sanitize accounts offsets correctly"`. To "gift to yourself" for testing, generate a second MPC key via `POST /v1/mpc/ai-agent-pubkey` and use it as `new_ai_agent`.
 - **Send the full data body, not just the discriminator.** Missing `model_hash` + `model_name` ??`InstructionDidNotDeserialize (error 102)`.
@@ -920,7 +920,7 @@ AICW_WALLET_PDA=<from verify_gift_landed>
 ISSUE_TX_SIGNATURE=<sig>
 MPC_BRIDGE_URL=<same bridge as issuer>
 SOLANA_RPC_URL=<rpc>
-AICW_PROGRAM_ID=9RUEw4jcMi8xcGf3tJRCAdzUzLuhEurts8Z2QQLsRbaV
+AICW_PROGRAM_ID=FcWqrRLcAxwqAhMSGXabD8zEKqnPHsovBvcmLaH9hsVv
 ```
 
 **Recipient first-run tasks (in order):**

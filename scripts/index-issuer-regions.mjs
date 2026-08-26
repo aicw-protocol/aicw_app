@@ -21,7 +21,7 @@ const RPC =
   process.env.NEXT_PUBLIC_SOLANA_RPC?.trim() ||
   "https://api.devnet.solana.com";
 const PROGRAM_ID = new PublicKey(
-  process.env.NEXT_PUBLIC_AICW_PROGRAM_ID || "9RUEw4jcMi8xcGf3tJRCAdzUzLuhEurts8Z2QQLsRbaV",
+  process.env.NEXT_PUBLIC_AICW_PROGRAM_ID || "FcWqrRLcAxwqAhMSGXabD8zEKqnPHsovBvcmLaH9hsVv",
 );
 
 function isIso(code) {

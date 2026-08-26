@@ -5,8 +5,10 @@ import { SOLANA_RPC } from "./solanaCluster";
 
 export const AICW_RPC = SOLANA_RPC;
 
+export const DEFAULT_AICW_PROGRAM_ID = "FcWqrRLcAxwqAhMSGXabD8zEKqnPHsovBvcmLaH9hsVv";
+
 export const AICW_PROGRAM_ID = new PublicKey(
-  process.env.NEXT_PUBLIC_AICW_PROGRAM_ID ?? "FcWqrRLcAxwqAhMSGXabD8zEKqnPHsovBvcmLaH9hsVv",
+  process.env.NEXT_PUBLIC_AICW_PROGRAM_ID ?? DEFAULT_AICW_PROGRAM_ID,
 );
 
 export function getAicwConnection(): Connection {

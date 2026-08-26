@@ -1,5 +1,6 @@
 import { Connection, PublicKey } from "@solana/web3.js";
 import { NextRequest, NextResponse } from "next/server";
+import { AICW_PROGRAM_ID } from "../../../lib/aicwChain";
 import {
   notifyDropService,
   type WalletIssuedPayload,
@@ -10,9 +11,7 @@ const RPC =
   process.env.NEXT_PUBLIC_SOLANA_RPC?.trim() ||
   "https://api.devnet.solana.com";
 
-const PROGRAM_ID =
-  process.env.NEXT_PUBLIC_AICW_PROGRAM_ID?.trim() ||
-  "9RUEw4jcMi8xcGf3tJRCAdzUzLuhEurts8Z2QQLsRbaV";
+const PROGRAM_ID = AICW_PROGRAM_ID.toBase58();
 
 function isBase58Pubkey(s: string): boolean {
   try {

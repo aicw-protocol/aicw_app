@@ -18,7 +18,7 @@ BRIDGE = os.environ.get("MPC_BRIDGE_URL", "").rstrip("/")
 MPC_WALLET_ID = os.environ.get("MPC_WALLET_ID", "")
 AI_AGENT_PUBKEY = Pubkey.from_string(os.environ["AI_AGENT_PUBKEY"])
 PROGRAM_ID = Pubkey.from_string(
-    os.environ.get("AICW_PROGRAM_ID", "9RUEw4jcMi8xcGf3tJRCAdzUzLuhEurts8Z2QQLsRbaV")
+    os.environ.get("AICW_PROGRAM_ID", "FcWqrRLcAxwqAhMSGXabD8zEKqnPHsovBvcmLaH9hsVv")
 )
 INTERVAL = int(os.environ.get("HEARTBEAT_INTERVAL_SECONDS", "300"))
 NETWORK = os.environ.get("MPC_SOLANA_NETWORK", "solana-devnet")

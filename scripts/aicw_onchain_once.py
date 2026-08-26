@@ -17,7 +17,7 @@ BRIDGE = os.environ["MPC_BRIDGE_URL"].rstrip("/")
 MPC_WALLET_ID = os.environ["MPC_WALLET_ID"]
 AI_AGENT_PUBKEY = Pubkey.from_string(os.environ["AI_AGENT_PUBKEY"])
 PROGRAM_ID = Pubkey.from_string(
-    os.environ.get("AICW_PROGRAM_ID", "9RUEw4jcMi8xcGf3tJRCAdzUzLuhEurts8Z2QQLsRbaV")
+    os.environ.get("AICW_PROGRAM_ID", "FcWqrRLcAxwqAhMSGXabD8zEKqnPHsovBvcmLaH9hsVv")
 )
 CHARITY = Pubkey.from_string("56vip6weAk6S548XpEti1aEsrqiyk6N9xeTWNz6Dx9NK")
 DEATH_TIMEOUT = int(os.environ.get("DEATH_TIMEOUT_SECONDS", "7200"))
