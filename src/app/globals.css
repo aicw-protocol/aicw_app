@@ -1578,9 +1578,40 @@ a {
 }
 
 .modal-title {
-  margin: 0 0 18px;
+  margin: 0;
   font-size: 18px;
   font-weight: 700;
+}
+
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 18px;
+}
+
+.modal-network-badge {
+  font-size: 13px;
+  font-weight: 600;
+  color: #10b981;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.modal-network-badge.is-mainnet {
+  color: #f59e0b;
+}
+
+.modal-network-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background-color: currentColor;
+  display: inline-block;
 }
 
 .modal-cost-box {

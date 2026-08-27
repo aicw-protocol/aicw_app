@@ -29,7 +29,7 @@ import { AppNav } from "../components/AppNav";
 import { AICW_SKILL_MD_URL } from "../lib/publicUrls";
 import { requestWalletDrop } from "../lib/requestWalletDrop";
 import { AICW_PROGRAM_ID } from "../lib/aicwChain";
-import { getClusterLabel, SOLANA_RPC } from "../lib/solanaCluster";
+import { getClusterLabel, isMainnet, SOLANA_RPC } from "../lib/solanaCluster";
 import {
   selectReferralNode,
   recordWalletOpen,
@@ -947,7 +947,16 @@ Read ${AICW_SKILL_MD_URL}
           }}
         >
           <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-            <h3 className="modal-title">Wallet issuance</h3>
+            <div className="modal-header">
+              <h3 className="modal-title">Wallet issuance</h3>
+              <span
+                className={`modal-network-badge${isMainnet() ? " is-mainnet" : ""}`}
+                aria-label={`Solana ${network}`}
+              >
+                <span className="modal-network-dot" />
+                {network}
+              </span>
+            </div>
 
             <div className="modal-cost-box">
               <p className="modal-cost-label">Account creation + network fee (estimate)</p>
